@@ -34,6 +34,7 @@ class ChatGPTAdapter extends SiteAdapter {
         this._usesVirtualizedTurnSelector = false;
         this._usesModernTurnSelector = false;
         this._virtualIndexOffset = null;
+        this._virtualIndexOffsetSamples = new Map();
     }
 
     /**
@@ -114,6 +115,7 @@ class ChatGPTAdapter extends SiteAdapter {
             changedCount++;
             this._domOnlyTurns = [];
             this._virtualIndexOffset = null;
+            this._virtualIndexOffsetSamples.clear();
         }
         if (completenessChanged) changedCount++;
         this._capturedTurns = nextTurns;
@@ -243,6 +245,7 @@ class ChatGPTAdapter extends SiteAdapter {
             this._capturedPendingUserIds.clear();
             this._domOnlyTurns = [];
             this._virtualIndexOffset = null;
+            this._virtualIndexOffsetSamples.clear();
         } else if (this._capturedComplete && this._capturedTextIds.size > 0) {
             return; // 只有已确认完整的同一对话索引才能停止重拉
         }
@@ -627,7 +630,11 @@ class ChatGPTAdapter extends SiteAdapter {
         const messageBase = Number.isFinite(marker?.messageIndex) ? marker.messageIndex - 1 : null;
         if (!Number.isFinite(domIndex) || !Number.isFinite(messageBase)) return;
         const offset = domIndex - messageBase;
-        if (Math.abs(offset) <= 100) this._virtualIndexOffset = offset;
+        if (Math.abs(offset) > 100) return;
+        this._virtualIndexOffsetSamples.set(marker.id, offset);
+        const agreeing = Array.from(this._virtualIndexOffsetSamples.values())
+            .filter(value => value === offset).length;
+        if (agreeing >= 2) this._virtualIndexOffset = offset;
     }
 
     resolveTimelineElement(marker) {
@@ -704,76 +711,61 @@ class ChatGPTAdapter extends SiteAdapter {
     }
 
     async jumpToTimelineMarker(marker, context = {}) {
+        const startedAt = performance.now();
         const isCurrent = typeof context.isCurrent === 'function' ? context.isCurrent : () => true;
         if (!isCurrent()) return null;
         const direct = this.resolveTimelineElement(marker);
-        if (direct) return direct;
-        const rawBase = Number.isFinite(marker?.messageIndex) ? marker.messageIndex - 1 : null;
-        const base = Number.isFinite(rawBase) && Number.isFinite(this._virtualIndexOffset)
-            ? rawBase + this._virtualIndexOffset : rawBase;
-        if (!Number.isFinite(base)) return null;
-        // One index request first. The old nearby-index loop visibly bounced
-        // through many positions before falling back to a second search.
-        const candidates = [Math.max(0, Math.trunc(base))];
-
-        // A successful virtualizer call only means the command was accepted;
-        // verify the requested message ID after every nearby index candidate.
-        for (const candidate of candidates) {
-            if (!isCurrent()) return null;
-            const result = await this._requestVirtualizerJump([candidate]);
-            if (!isCurrent()) return null;
-            if (!result?.ok) {
-                window.AITGPTDiagnostics?.log('timeline.navigation', {
-                    stage: 'virtualizer-unavailable', markerId: marker?.id || '',
-                    attemptedIndex: candidate, reason: result?.reason || 'no-response'
-                });
-                break;
-            }
-            await new Promise(resolve => setTimeout(resolve, 80));
-            if (!isCurrent()) return null;
-            const mounted = this.resolveTimelineElement(marker);
+        if (direct) {
             window.AITGPTDiagnostics?.log('timeline.navigation', {
-                stage: 'virtualizer-attempt', markerId: marker?.id || '',
-                messageId: marker?.messageId || marker?.sourceId || '', attemptedIndex: candidate,
-                virtualizerOk: !!result?.ok, domMatched: !!mounted
+                stage: 'adapter-complete', strategy: 'mounted-dom', markerId: marker?.id || '',
+                apiIndex: marker?.messageIndex || 0, virtualIndex: null,
+                scrollOperations: 0, indexProbe: false, fullScan: false,
+                domMatched: true, elapsedMs: Math.round(performance.now() - startedAt)
             });
-            if (mounted) return mounted;
+            return direct;
         }
-
-        const scrollContainer = context.scrollContainer;
-        if (scrollContainer && !this.resolveTimelineElement(marker)) {
-            const maxTop = Math.max(0, scrollContainer.scrollHeight - scrollContainer.clientHeight);
-            // When the page virtualizer cannot be found, scan in one direction.
-            // The previous ratio +/- distance sweep alternated above and below
-            // the estimate, causing the reported repeated up/down movement.
-            const step = Math.max(240, Math.round(scrollContainer.clientHeight * 0.9));
-            let checked = 0;
-            for (let position = 0; position <= maxTop + step; position += step) {
+        const rawBase = Number.isFinite(marker?.messageIndex) ? marker.messageIndex - 1 : null;
+        const offset = this._virtualIndexOffset;
+        if (!Number.isFinite(rawBase) || !Number.isFinite(offset) || rawBase + offset < 0) {
+            window.AITGPTDiagnostics?.log('timeline.navigation', {
+                stage: 'adapter-failed', strategy: 'none', markerId: marker?.id || '',
+                apiIndex: marker?.messageIndex || 0, virtualIndex: null,
+                reason: 'unverified-virtual-index', scrollOperations: 0,
+                indexProbe: false, fullScan: false, domMatched: false,
+                elapsedMs: Math.round(performance.now() - startedAt)
+            });
+            return null;
+        }
+        const virtualIndex = Math.trunc(rawBase + offset);
+        if (!isCurrent()) return null;
+        const result = await this._requestVirtualizerJump([virtualIndex]);
+        if (!isCurrent()) return null;
+        if (result?.ok) {
+            for (let attempt = 0; attempt < 8; attempt++) {
                 if (!isCurrent()) return null;
-                scrollContainer.scrollTop = Math.min(position, maxTop);
-                checked++;
-                await new Promise(resolve => setTimeout(resolve, 65));
-                const found = this.resolveTimelineElement(marker);
-                if (found) {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                if (!isCurrent()) return null;
+            const mounted = this.resolveTimelineElement(marker);
+                if (mounted) {
                     window.AITGPTDiagnostics?.log('timeline.navigation', {
-                        stage: 'scroll-search-found', markerId: marker?.id || '',
-                        scrollTop: scrollContainer.scrollTop, positionsChecked: checked
+                        stage: 'adapter-complete', strategy: 'verified-virtual-index',
+                        markerId: marker?.id || '', apiIndex: marker.messageIndex,
+                        virtualIndex, scrollOperations: 1, indexProbe: false,
+                        fullScan: false, domMatched: true,
+                        elapsedMs: Math.round(performance.now() - startedAt)
                     });
-                    return found;
+                    return mounted;
                 }
             }
-            window.AITGPTDiagnostics?.log('timeline.navigation', {
-                stage: 'scroll-search-exhausted', markerId: marker?.id || '',
-                positionsChecked: checked, maxTop
-            });
         }
-
-        for (let attempt = 0; attempt < 18; attempt++) {
-            if (!isCurrent()) return null;
-            const element = this.resolveTimelineElement(marker);
-            if (element) return element;
-            await new Promise(resolve => setTimeout(resolve, 100));
-        }
+        window.AITGPTDiagnostics?.log('timeline.navigation', {
+            stage: 'adapter-failed', strategy: 'verified-virtual-index',
+            markerId: marker?.id || '', apiIndex: marker.messageIndex,
+            virtualIndex, reason: result?.ok ? 'target-id-not-mounted' : (result?.reason || 'virtualizer-unavailable'),
+            scrollOperations: result?.ok ? 1 : 0, indexProbe: false,
+            fullScan: false, domMatched: false,
+            elapsedMs: Math.round(performance.now() - startedAt)
+        });
         return null;
     }
 

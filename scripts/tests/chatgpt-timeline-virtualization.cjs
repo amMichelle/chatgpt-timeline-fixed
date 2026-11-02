@@ -492,11 +492,12 @@ async function testManagerVirtualMarkerNavigation() {
   assert.deepEqual(smoothed, ['chatgpt-u100'], 'the last rapid click must own the final scroll');
 }
 
-async function testChatGPTFallbackSearchDoesNotOscillate() {
+async function testChatGPTNavigationNeverScansConversation() {
   const source = fs.readFileSync(path.join(root, 'js/timeline/adapters/chatgpt.js'), 'utf8') + '\nwindow.__TestChatGPTAdapter = ChatGPTAdapter;';
   class SiteAdapter {}
   const context = vm.createContext({
     window: {}, document: {}, SiteAdapter, Map, Set, Array, Object, JSON, Promise,
+    performance: { now: () => 0 },
     setTimeout: callback => { Promise.resolve().then(callback); return 1; }
   });
   vm.runInContext(source, context);
@@ -507,14 +508,31 @@ async function testChatGPTFallbackSearchDoesNotOscillate() {
     set scrollTop(value) { positions.push(value); }
   };
   const found = { isConnected: true };
-  adapter.resolveTimelineElement = () => scrollContainer.scrollTop >= 540 ? found : null;
-  adapter._requestVirtualizerJump = async () => ({ ok: false, reason: 'virtualizer_api_not_found' });
-  const result = await adapter.jumpToTimelineMarker({ id: 'chatgpt-old', messageIndex: 3, visualN: 0.8 }, {
+  let calls = 0;
+  adapter.resolveTimelineElement = () => null;
+  adapter._requestVirtualizerJump = async () => { calls++; return { ok: false, reason: 'virtualizer_api_not_found' }; };
+  const marker = { id: 'chatgpt-old', messageIndex: 151, visualN: 0.8 };
+  const result = await adapter.jumpToTimelineMarker(marker, {
     scrollContainer, isCurrent: () => true
   });
-  assert.equal(result, found);
-  assert.deepEqual(positions, [...positions].sort((a, b) => a - b), 'fallback search must move in one direction');
-  assert.equal(positions.at(-1), 540, 'search stops as soon as the target message mounts');
+  assert.equal(result, null);
+  assert.equal(calls, 0, 'API index alone is not a verified virtual-list index');
+  assert.equal(positions.length, 0, 'long conversations must never be searched by scrolling');
+
+  adapter._virtualIndexOffset = 2;
+  adapter._requestVirtualizerJump = async candidates => {
+    calls++;
+    assert.deepEqual(Array.from(candidates), [152]);
+    return { ok: true };
+  };
+  adapter.resolveTimelineElement = () => calls === 1 ? found : null;
+  assert.equal(await adapter.jumpToTimelineMarker(marker, { scrollContainer }), found);
+  assert.equal(calls, 1, 'verified index is requested exactly once');
+  assert.equal(positions.length, 0, 'virtualizer path never runs a scrollTop sweep');
+
+  adapter.resolveTimelineElement = () => found;
+  assert.equal(await adapter.jumpToTimelineMarker(marker, { scrollContainer }), found);
+  assert.equal(calls, 1, 'mounted target bypasses virtualizer');
 }
 
 async function testCapturedApiTriggersInitialization() {
@@ -575,7 +593,7 @@ async function testCapturedApiTriggersInitialization() {
   testAdapterBuildsCompleteMarkersFromPartialDom();
   await testVirtualizerBridge();
   await testManagerVirtualMarkerNavigation();
-  await testChatGPTFallbackSearchDoesNotOscillate();
+  await testChatGPTNavigationNeverScansConversation();
   await testCapturedApiTriggersInitialization();
   console.log('PASS: complete/paginated index, live Q101-Q103 optimistic merge, partial protection, stale DOM rejection, branch isolation, and last-click-wins navigation.');
 })().catch(error => {
