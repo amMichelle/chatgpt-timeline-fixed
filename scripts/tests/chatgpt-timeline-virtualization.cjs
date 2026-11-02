@@ -447,6 +447,12 @@ function testAdapterBuildsCompleteMarkersFromPartialDom() {
   assert.equal(modernEntries[2].element, contentOnlyRoot, 'content-search turn without data-turn-key maps by selection message ID');
   modernEntries[1].element = null;
   assert.equal(adapter.resolveTimelineElement(modernEntries[1]), userRoot);
+  const imageOnlyRoot = new ModernElement('div', { 'data-turn-key': 'u1' }, main);
+  new ModernElement('div', { 'data-chatgpt-selection-message-id': 'assistant-selection-id' }, imageOnlyRoot);
+  new ModernElement('div', { 'data-chatgpt-search-message-ids': 'u1' }, imageOnlyRoot);
+  allModern.push(imageOnlyRoot);
+  assert.equal(adapter.resolveTimelineElement({ id: 'chatgpt-u1', sourceId: 'u1', messageId: 'm1', aliasIds: ['u1', 'm1'], element: null }), imageOnlyRoot,
+    'file-only turn matches its outer API turn key even if inner selection ID differs');
 }
 
 async function testManagerVirtualMarkerNavigation() {
@@ -518,6 +524,16 @@ async function testChatGPTNavigationNeverScansConversation() {
   assert.equal(result, null);
   assert.equal(calls, 0, 'API index alone is not a verified virtual-list index');
   assert.equal(positions.length, 0, 'long conversations must never be searched by scrolling');
+
+  adapter._capturedComplete = true;
+  adapter._capturedTurns = Array.from({ length: 25 }, (_, index) => ({ id: `u${index + 1}` }));
+  marker.userOrder = 25;
+  adapter.resolveTimelineElement = () => positions.length === 1 ? found : null;
+  assert.equal(await adapter.jumpToTimelineMarker(marker, { scrollContainer }), found,
+    'file-only target may use one bounded order estimate, then must match its ID');
+  assert.equal(positions.length, 1, 'an unindexed target must never trigger a sweep');
+  positions.length = 0;
+  adapter._capturedComplete = false;
 
   adapter._virtualIndexOffset = 2;
   adapter._requestVirtualizerJump = async candidates => {
