@@ -727,42 +727,6 @@ class ChatGPTAdapter extends SiteAdapter {
         const rawBase = Number.isFinite(marker?.messageIndex) ? marker.messageIndex - 1 : null;
         const offset = this._virtualIndexOffset;
         if (!Number.isFinite(rawBase) || !Number.isFinite(offset) || rawBase + offset < 0) {
-            const scrollContainer = context.scrollContainer;
-            const totalUsers = this._capturedTurns.length;
-            const order = marker?.userOrder;
-            if (scrollContainer && this._capturedComplete && Number.isFinite(order)
-                && order >= 1 && order <= totalUsers && totalUsers > 0) {
-                const maxTop = Math.max(0, scrollContainer.scrollHeight - scrollContainer.clientHeight);
-                const top = Math.round(maxTop * Math.min(1, Math.max(0, (order - 0.5) / totalUsers)));
-                if (!isCurrent()) return null;
-                scrollContainer.scrollTop = top;
-                // This is one estimate, never a scan. A successful jump requires
-                // the actual API node ID to appear on the outer turn root.
-                for (let attempt = 0; attempt < 6; attempt++) {
-                    if (!isCurrent()) return null;
-                    await new Promise(resolve => setTimeout(resolve, 100));
-                    if (!isCurrent()) return null;
-                    const mounted = this.resolveTimelineElement(marker);
-                    if (mounted) {
-                        window.AITGPTDiagnostics?.log('timeline.navigation', {
-                            stage: 'adapter-complete', strategy: 'single-order-estimate',
-                            markerId: marker?.id || '', apiIndex: marker.messageIndex,
-                            virtualIndex: null, scrollOperations: 1, indexProbe: false,
-                            fullScan: false, domMatched: true,
-                            elapsedMs: Math.round(performance.now() - startedAt)
-                        });
-                        return mounted;
-                    }
-                }
-                window.AITGPTDiagnostics?.log('timeline.navigation', {
-                    stage: 'adapter-failed', strategy: 'single-order-estimate',
-                    markerId: marker?.id || '', apiIndex: marker.messageIndex,
-                    virtualIndex: null, reason: 'target-id-not-mounted',
-                    scrollOperations: 1, indexProbe: false, fullScan: false,
-                    domMatched: false, elapsedMs: Math.round(performance.now() - startedAt)
-                });
-                return null;
-            }
             window.AITGPTDiagnostics?.log('timeline.navigation', {
                 stage: 'adapter-failed', strategy: 'none', markerId: marker?.id || '',
                 apiIndex: marker?.messageIndex || 0, virtualIndex: null,
@@ -781,7 +745,7 @@ class ChatGPTAdapter extends SiteAdapter {
                 if (!isCurrent()) return null;
                 await new Promise(resolve => setTimeout(resolve, 100));
                 if (!isCurrent()) return null;
-                const mounted = this.resolveTimelineElement(marker);
+            const mounted = this.resolveTimelineElement(marker);
                 if (mounted) {
                     window.AITGPTDiagnostics?.log('timeline.navigation', {
                         stage: 'adapter-complete', strategy: 'verified-virtual-index',
