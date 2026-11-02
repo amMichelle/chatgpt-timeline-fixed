@@ -1,0 +1,16 @@
+{
+  "name": "chatgpt-timeline-fixed",
+  "version": "4.7.7",
+  "private": true,
+  "description": "Maintenance version of chatgpt-gemini-timeline focused on modern ChatGPT timeline compatibility.",
+  "license": "GPL-3.0-or-later",
+  "scripts": {
+    "test": "node scripts/tests/chatgpt-api-diagnostics.cjs && node scripts/tests/chatgpt-diagnostics-coverage.cjs && node scripts/tests/chatgpt-entry-rollout.cjs && node scripts/tests/chatgpt-feature-diagnostics.cjs && node scripts/tests/chatgpt-rollout-dom.cjs && node scripts/tests/chatgpt-rollout-geometry.cjs && node scripts/tests/chatgpt-timeline-virtualization.cjs",
+    "build:chrome": "node scripts/build-chrome.js",
+    "build:firefox": "node scripts/build-firefox.js"
+  },
+  "devDependencies": {
+    "archiver": "^8.0.0",
+    "jsdom": "^29.1.1"
+  }
+}

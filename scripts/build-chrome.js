@@ -13,12 +13,12 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { createArchive } = require('./build-archive');
 
 const ROOT = path.resolve(__dirname, '..');
 const MANIFEST_PATH = path.join(ROOT, 'manifest.json');
 
-function build() {
+async function build() {
     const version = JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf-8')).version;
     const zipName = `AIChatTimeline-v${version}-chrome.zip`;
     const zipPath = path.join(ROOT, zipName);
@@ -26,26 +26,8 @@ function build() {
 
     if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
 
-    execSync(`zip -r "${zipName}" . ` +
-        `-x ".git/*" ` +
-        `-x ".gitignore" ` +
-        `-x "node_modules/*" ` +
-        `-x ".DS_Store" ` +
-        `-x "*/.DS_Store" ` +
-        `-x "*.md" ` +
-        `-x ".cursor/*" ` +
-        `-x ".claude/*" ` +
-        `-x "*.zip" ` +
-        `-x "__MACOSX/*" ` +
-        `-x "scripts/*" ` +
-        `-x "web/*" ` +
-        `-x "manifest.firefox.json" ` +
-        `-x "READMEIMAGE/*"`,
-        { cwd: ROOT, stdio: 'pipe' }
-    );
-
-    const stats = fs.statSync(zipPath);
-    const sizeMB = (stats.size / 1024 / 1024).toFixed(1);
+    const bytes = await createArchive(ROOT, zipPath, ['manifest.firefox.json']);
+    console.log(`Created ${zipName} (${(bytes / 1024 / 1024).toFixed(1)} MB)`);
 }
 
-build();
+build().catch(error => { console.error(error); process.exitCode = 1; });

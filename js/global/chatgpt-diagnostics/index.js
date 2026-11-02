@@ -21,10 +21,22 @@
         records.push(record);
     }
     const type = value => value === null ? 'null' : Array.isArray(value) ? 'array' : typeof value;
+    const isSensitiveField = key => key === 'id' || key === 'ids' || key === 'current_node'
+        || /(?:Id|Ids|_id|_ids)$/.test(key);
+    function sanitize(data, depth = 0) {
+        if (depth > 8 || data === null || typeof data !== 'object') return data;
+        if (Array.isArray(data)) return data.slice(0, 100).map(value => sanitize(value, depth + 1));
+        const result = {};
+        for (const [key, value] of Object.entries(data)) {
+            result[key] = isSensitiveField(key) ? ':redacted' : sanitize(value, depth + 1);
+        }
+        return result;
+    }
     function log(event, data = {}) {
         try {
             if (!verbose && quietEvents.has(event)) return;
-            const encoded = JSON.stringify(data);
+            const safeData = sanitize(data);
+            const encoded = JSON.stringify(safeData);
             const previous = entries.get(event);
             const now = performance.now();
             if (previous?.data === encoded && now - previous.at < 5000) return;
@@ -32,7 +44,7 @@
             if (count > 500) { dropped++; return; }
             repeats.set(event, count);
             entries.set(event, { data: encoded, at: now });
-            const record = { world, ms: Math.round(now - started), event, ...data };
+            const record = { world, ms: Math.round(now - started), event, ...safeData };
             remember(record);
             console.info('[AIT-GPT-DIAG] ' + JSON.stringify(record));
             if (world === 'ISOLATED') document.dispatchEvent(new CustomEvent('ait-gpt-diag-record', { detail: JSON.stringify(record) }));

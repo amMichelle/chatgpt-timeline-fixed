@@ -69,7 +69,8 @@ async function run(source, fixture, options = {}) {
         assert(after.records.some(r => r.event === 'api.bridge-pull'));
         if (name === 'normal') {
             const parsed = after.records.find(r => r.event === 'api.parsed-branch');
-            assert.equal(parsed.userTurns, 1); assert.equal(parsed.textEntries, 1);
+            assert.equal(parsed.userTurns, 1);
+            assert.equal(parsed.textEntries, 2, 'node and message aliases should both be indexed');
         }
         if (name === 'wrapped mapping') assert(after.records.some(r => r.event === 'api.capture-skipped' && r.reason === 'mapping-missing'));
         if (name === 'alternate endpoint') assert(after.records.some(r => r.event === 'api.alternative-shape' && r.data.mapping.count === 1));
@@ -91,14 +92,21 @@ async function run(source, fixture, options = {}) {
     ] };
     const plural = endpoint.replace('/conversation/', '/conversations/');
     const captured = await run(current, flat, { url: plural });
-    assert.deepEqual(captured.result.texts, { 'private-message': secret });
+    assert.deepEqual(captured.result.texts, {
+        'private-message': secret,
+        tool: '[图片或文件]',
+        image: '[图片或文件]'
+    });
     assert(captured.records.some(r => r.event === 'api.parsed-branch' && r.source === 'messages'));
     for (const options of [{ url: plural, noRollout: true }, { url: plural, method: 'POST' },
         { url: plural.replace('chatgpt.com', 'example.com') }, { url: endpoint }]) {
         assert.deepEqual((await run(current, flat, options)).result.texts, {});
     }
     assert.deepEqual((await run(current, { messages: [] }, { url: plural })).result.texts, {});
-    assert.deepEqual((await run(current, json, { noRollout: true })).result.texts, { 'secret-node': secret });
+    assert.deepEqual((await run(current, json, { noRollout: true })).result.texts, {
+        'secret-node': secret,
+        'private-message': secret
+    });
     const focused = await run(current, flat, { url: plural, focused: true });
     assert(focused.records.some(r => r.event === 'api.read-complete' && r.messagesCount === 4));
     assert(!focused.records.some(r => ['api.request-observed', 'api.response-shape', 'api.mapping-node-schema'].includes(r.event)));
@@ -130,7 +138,8 @@ async function run(source, fixture, options = {}) {
     pull(); assert.deepEqual(raceResult.texts, { 'new-message': secret });
     rw.fetch(plural); pending[2](responseFor({ messages: [] }));
     await new Promise(resolve => setImmediate(resolve));
-    pull(); assert.deepEqual(raceResult.texts, {}, 'empty successful snapshot clears obsolete IDs');
+    pull(); assert.deepEqual(raceResult.texts, { 'new-message': secret },
+        'an empty partial page must not erase the latest non-empty snapshot');
     race.window.close();
     // Non-GPT pages remain quiet, and repeated identical logs are bounded.
     const dom = new JSDOM('', { url: 'https://example.com', runScripts: 'outside-only' });

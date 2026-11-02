@@ -20,7 +20,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { createArchive } = require('./build-archive');
 
 const ROOT = path.resolve(__dirname, '..');
 const MANIFEST_PATH = path.join(ROOT, 'manifest.json');
@@ -70,7 +70,7 @@ function generateFirefoxManifest(geckoId) {
     return manifest;
 }
 
-function build() {
+async function build() {
     const args = parseArgs();
     const geckoId = args['gecko-id'] || DEFAULT_GECKO_ID;
     const version = JSON.parse(fs.readFileSync(MANIFEST_PATH, 'utf-8')).version;
@@ -90,24 +90,8 @@ function build() {
         // 打包
         if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
 
-        execSync(`zip -r "${zipName}" . ` +
-            `-x ".git/*" ` +
-            `-x ".gitignore" ` +
-            `-x "node_modules/*" ` +
-            `-x ".DS_Store" ` +
-            `-x "*/.DS_Store" ` +
-            `-x "*.md" ` +
-            `-x ".cursor/*" ` +
-            `-x "*.zip" ` +
-            `-x "__MACOSX/*" ` +
-            `-x "scripts/*" ` +
-            `-x "web/*" ` +
-            `-x "manifest.firefox.json"`,
-            { cwd: ROOT, stdio: 'pipe' }
-        );
-
-        const stats = fs.statSync(zipPath);
-        const sizeMB = (stats.size / 1024 / 1024).toFixed(1);
+        const bytes = await createArchive(ROOT, zipPath, ['manifest.firefox.json']);
+        console.log(`Created ${zipName} (${(bytes / 1024 / 1024).toFixed(1)} MB)`);
     } finally {
         // 恢复原始 manifest.json
         fs.writeFileSync(MANIFEST_PATH, originalManifest);
@@ -118,4 +102,4 @@ function build() {
 
 }
 
-build();
+build().catch(error => { console.error(error); process.exitCode = 1; });
