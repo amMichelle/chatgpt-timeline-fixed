@@ -1,0 +1,17 @@
+/**
+ * Runner Settings Tab Styles
+ * 代码运行器设置样式
+ * 
+ * 注意：复用 timeline/styles.css 中定义的通用类
+ * 如 .platform-list, .platform-list-title, .platform-list-hint, 
+ * .platform-list-container, .platform-item, .platform-info-left, .platform-name
+ */
+
+/* 设置容器 */
+.runner-settings-tab {
+    padding: 0;
+    overflow-y: auto;
+    height: 100%;
+    box-sizing: border-box;
+}
+

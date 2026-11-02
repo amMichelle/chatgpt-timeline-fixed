@@ -1,0 +1,1100 @@
+{
+  "extName": {
+    "message": "Timeline: ChatGPT y Gemini chat mejorado"
+  },
+  "extDescription": {
+    "message": "Cronología, carpetas, biblioteca de prompts, mascota virtual. Compatible con DeepSeek, Claude y todas las plataformas IA."
+  },
+  "qwxpzm": {
+    "message": "Favorito"
+  },
+  "hkjvnr": {
+    "message": "Ver favoritos"
+  },
+  "zmvkpx": {
+    "message": "Guardar en carpeta"
+  },
+  "bpxjkw": {
+    "message": "Quitar de favoritos"
+  },
+  "vnkxpm": {
+    "message": "Carpeta"
+  },
+  "kxpmzv": {
+    "message": "Agregado a favoritos"
+  },
+  "pzmvkx": {
+    "message": "Quitado de favoritos"
+  },
+  "jwvnkp": {
+    "message": "Sin datos"
+  },
+  "zxvkpm": {
+    "message": "Ver todo"
+  },
+  "qdyqxsc": {
+    "message": "¿Quieres quitar de favoritos?"
+  },
+  "mvkxpz": {
+    "message": "Copiar"
+  },
+  "xpzmvk": {
+    "message": "Copiado"
+  },
+  "vkpxzm": {
+    "message": "Editar"
+  },
+  "kpzmvx": {
+    "message": "Error al copiar"
+  },
+  "zmxvkp": {
+    "message": "Por favor ingrese"
+  },
+  "commonCancel": {
+    "message": "Cancelar"
+  },
+  "vkmzpx": {
+    "message": "Confirmar"
+  },
+  "mzpxvk": {
+    "message": "El título no puede estar vacío"
+  },
+  "folderRequired": {
+    "message": "Por favor, selecciona una carpeta"
+  },
+  "defaultFolder": {
+    "message": "Predeterminado"
+  },
+  "pinItem": {
+    "message": "Fijar arriba"
+  },
+  "unpinItem": {
+    "message": "Desfijar"
+  },
+  "searchPrompt": {
+    "message": "Buscar prompts..."
+  },
+  "promptCommonSettingsTab": {
+    "message": "Ajustes comunes"
+  },
+  "promptEmptyHint": {
+    "message": "Guarda los prompts que usas a menudo e insértalos en el cuadro de entrada con un clic."
+  },
+  "promptAllSettingsTooltip": {
+    "message": "Todos los ajustes"
+  },
+  "shareExtension": {
+    "message": "Compartir extensión"
+  },
+  "promptCommonSmartInputHint": {
+    "message": "En el cuadro de chat, configura cómo la tecla Enter controla los saltos de línea y el envío de mensajes"
+  },
+  "promptCommonFeedbackTitle": {
+    "message": "Informar problemas o pedir funciones"
+  },
+  "promptCommonFeedbackHint": {
+    "message": "¿Encontraste un error o tienes una idea? Deja tus comentarios en la sección de reseñas de la tienda de extensiones."
+  },
+  "promptCommonFeedbackButton": {
+    "message": "Enviar feedback"
+  },
+  "promptCommonGithubStarTitle": {
+    "message": "Apoya con una 🌟"
+  },
+  "promptCommonGithubStarHint": {
+    "message": "Si Timeline te resulta útil, apóyalo con una estrella en GitHub."
+  },
+  "promptCommonMirrorSiteHint": {
+    "message": "Adapta otros sitios de chat de IA para desbloquear funciones como Cronología, prompts y notas rápidas."
+  },
+  "promptCommonGithubStarButton": {
+    "message": "Ir a GitHub"
+  },
+  "timelineToggleCollapseTooltip": {
+    "message": "Contraer la línea de tiempo"
+  },
+  "timelineToggleExpandTooltip": {
+    "message": "Expandir la línea de tiempo"
+  },
+  "sidebarStarredHint": {
+    "message": "Cuando está habilitado, se muestran carpetas en la barra lateral"
+  },
+  "sidebarStarredManage": {
+    "message": "Ajustes"
+  },
+  "sidebarStarredManageTitle": {
+    "message": "Favoritos en barra lateral"
+  },
+  "pinAction": {
+    "message": "Marcar como importante"
+  },
+  "unpinAction": {
+    "message": "Quitar marca importante"
+  },
+  "starAction": {
+    "message": "Guardar en carpeta"
+  },
+  "unstarAction": {
+    "message": "Quitar de guardados"
+  },
+  "questionListTitle": {
+    "message": "Preguntas"
+  },
+  "questionListEmpty": {
+    "message": "Sin preguntas aún"
+  },
+  "animTabTitle": {
+    "message": "Mascota digital"
+  },
+  "animTabDesc": {
+    "message": "Se muestra sobre el cuadro de chat. Los animalitos caminan alegremente cuando la IA responde."
+  },
+  "animSnail": {
+    "message": "Desfile de caracoles"
+  },
+  "animZombie": {
+    "message": "Marcha zombie"
+  },
+  "animAnt": {
+    "message": "Marcha de hormigas"
+  },
+  "animWizard": {
+    "message": "Mago"
+  },
+  "animTabEmpty": {
+    "message": "No hay animaciones disponibles"
+  },
+  "animGrowHint": {
+    "message": "{n} mensajes más"
+  },
+  "xvkpmz": {
+    "message": "Renombrar"
+  },
+  "pzmkvx": {
+    "message": "El contenido no puede estar vacío"
+  },
+  "vxpzmk": {
+    "message": "Código abierto"
+  },
+  "mkvxpz": {
+    "message": "Dale una estrella"
+  },
+  "xpzmkv": {
+    "message": "Bienvenido"
+  },
+  "pkmzvx": {
+    "message": "Compartir con amigos"
+  },
+  "mvxkpz": {
+    "message": "Copiar fórmula LaTeX"
+  },
+  "kxvpmz": {
+    "message": "Nueva carpeta"
+  },
+  "vpmzkx": {
+    "message": "Nueva subcarpeta"
+  },
+  "mzxvkp": {
+    "message": "Eliminar"
+  },
+  "pkxvmz": {
+    "message": "Carpeta predeterminada"
+  },
+  "xmkvpz": {
+    "message": "Crear subcarpeta en \"{folderName}\""
+  },
+  "vzkpmx": {
+    "message": "Ingrese el nombre de la carpeta"
+  },
+  "kmxpvz": {
+    "message": "El nombre de la carpeta no puede estar vacío"
+  },
+  "pxmzvk": {
+    "message": "Editar carpeta"
+  },
+  "mvzxkp": {
+    "message": "Ingrese el nuevo nombre"
+  },
+  "kpvzmx": {
+    "message": "El nombre de la carpeta ya existe"
+  },
+  "xzvkpm": {
+    "message": "Creado con éxito"
+  },
+  "vmkxpz": {
+    "message": "Actualizado con éxito"
+  },
+  "zpxmkv": {
+    "message": "Carpeta no encontrada"
+  },
+  "kvpzmx": {
+    "message": "Carpeta eliminada"
+  },
+  "mxkvzp": {
+    "message": "Error al eliminar"
+  },
+  "pzvkmx": {
+    "message": "Movido con éxito"
+  },
+  "vxkpmz": {
+    "message": "Mover a"
+  },
+  "wjxnkp": {
+    "message": "{count} elementos favoritos también serán eliminados."
+  },
+  "qzmvkx": {
+    "message": "¿Está seguro de que desea eliminar la carpeta \"{folderName}\"?"
+  },
+  "mvkzpx": {
+    "message": "Buscar..."
+  },
+  "kxzpmv": {
+    "message": "Guardar en"
+  },
+  "vmzpkx": {
+    "message": "Carpeta predeterminada"
+  },
+  "pkmvxz": {
+    "message": "Título"
+  },
+  "pxkmvz": {
+    "message": "Línea de tiempo"
+  },
+  "mzkvxp": {
+    "message": "Cuando está habilitado, se muestra una línea de tiempo en el lado derecho de la página de conversación de IA"
+  },
+  "vkpmzx": {
+    "message": "Usar teclas ↑ / ↓ para navegar entre nodos de conversación"
+  },
+  "xpvmkz": {
+    "message": "Cuando está habilitado, use las teclas ↑ / ↓ para saltar rápidamente entre nodos de conversación."
+  },
+  "pxmzkv": {
+    "message": "Marcar conversaciones importantes"
+  },
+  "kzxvpm": {
+    "message": "Mantenga presionado un nodo de conversación en la línea de tiempo para marcarlo como importante."
+  },
+  "xmvkpz": {
+    "message": "Cuadro de entrada"
+  },
+  "kvzmxp": {
+    "message": "Salto de línea y envío"
+  },
+  "kpxvmz": {
+    "message": "Copiar fórmula"
+  },
+  "zmkvpx": {
+    "message": "Copiar fórmula LaTeX"
+  },
+  "vxkpzm": {
+    "message": "Cuando está habilitado, detecta automáticamente las fórmulas en la página y haz clic para copiar en formato LaTeX."
+  },
+  "mkvzpx": {
+    "message": "Plataformas compatibles"
+  },
+  "vxmkpz": {
+    "message": "Tecla Enter: presione una vez para nueva línea, dos veces para enviar"
+  },
+  "mkpxvz": {
+    "message": "Cuando está habilitado, en el cuadro de entrada de chat de IA, presione Enter para nueva línea, {mode} para enviar el mensaje."
+  },
+  "qoytxz": {
+    "message": "Esta función está habilitada de forma predeterminada y no se puede desactivar"
+  },
+  "hosegod": {
+    "message": "Prompts"
+  },
+  "hobsidbg": {
+    "message": "Guarda tus prompts para acceder rápidamente. Cuando está habilitado, se mostrará un botón de prompt en el lado izquierdo del cuadro de chat."
+  },
+  "biwhckdj": {
+    "message": "Lista de prompts"
+  },
+  "byaskjndg": {
+    "message": "Agregar prompt"
+  },
+  "hsksuywm": {
+    "message": "Editar prompt"
+  },
+  "hsuywkw": {
+    "message": "Nombre del prompt"
+  },
+  "hsuywkwPlaceholder": {
+    "message": "Ingrese el nombre del prompt"
+  },
+  "promptContent": {
+    "message": "Contenido"
+  },
+  "uwkjwjw": {
+    "message": "Ingrese el contenido del prompt"
+  },
+  "hsiwhwl": {
+    "message": "No hay prompts"
+  },
+  "shwsuwk": {
+    "message": "Prompt agregado"
+  },
+  "hwkwbhwk": {
+    "message": "Prompt actualizado"
+  },
+  "qrtypd": {
+    "message": "Prompt eliminado"
+  },
+  "dcnfmq": {
+    "message": "¿Está seguro de que desea eliminar este prompt?"
+  },
+  "svkbtn": {
+    "message": "Guardar"
+  },
+  "pmpknd": {
+    "message": "Fijado"
+  },
+  "pmuknp": {
+    "message": "Desfijado"
+  },
+  "addkbt": {
+    "message": "Agregar"
+  },
+  "ptfmsl": {
+    "message": "Aplicar a"
+  },
+  "allptfm": {
+    "message": "Todas las plataformas de IA"
+  },
+  "febhyejd": {
+    "message": "Enviar comentarios en línea"
+  },
+  "runnerTabName": {
+    "message": "Ejecutor de código"
+  },
+  "runnerSettingsTitle": {
+    "message": "Lenguajes soportados"
+  },
+  "runnerSettingsHint": {
+    "message": "Cuando está activado, aparecerá un botón Run en los bloques de código para ejecutar código directamente"
+  },
+  "conversationExportButtonTooltip": {
+    "message": "Exportar conversación"
+  },
+  "conversationExportModalTitle": {
+    "message": "Exportar conversación"
+  },
+  "conversationExportSectionRange": {
+    "message": "Rango de exportación"
+  },
+  "conversationExportSectionFormat": {
+    "message": "Formato de exportación"
+  },
+  "conversationExportSectionHeader": {
+    "message": "Más opciones"
+  },
+  "conversationExportSectionTheme": {
+    "message": "Color del tema"
+  },
+  "conversationExportSectionList": {
+    "message": "Seleccionar mensajes"
+  },
+  "conversationExportRangeAll": {
+    "message": "Toda la conversación"
+  },
+  "conversationExportRangeSelect": {
+    "message": "Seleccionar mensajes"
+  },
+  "conversationExportHeaderShowUrl": {
+    "message": "URL de la conversación"
+  },
+  "conversationExportHeaderShowTime": {
+    "message": "Hora de exportación"
+  },
+  "conversationExportHeaderShowConversationTime": {
+    "message": "Hora del mensaje"
+  },
+  "conversationExportAskTimeLabel": {
+    "message": "Hora de la pregunta"
+  },
+  "conversationExportSourceLabel": {
+    "message": "URL de la conversación"
+  },
+  "conversationExportTimeLabel": {
+    "message": "Hora de exportación"
+  },
+  "conversationExportTitleLabel": {
+    "message": "Título"
+  },
+  "conversationExportSelectAll": {
+    "message": "Seleccionar todo"
+  },
+  "conversationExportTurnPrefix": {
+    "message": "Mensaje"
+  },
+  "conversationExportEmptyAssistant": {
+    "message": "No se encontró respuesta"
+  },
+  "conversationExportEmptyUserPreview": {
+    "message": "(Sin contenido de texto)"
+  },
+  "conversationExportCancel": {
+    "message": "Cancelar"
+  },
+  "conversationExportConfirm": {
+    "message": "Exportar"
+  },
+  "conversationExportLoading": {
+    "message": "Cargando conversación..."
+  },
+  "conversationExportLoadingProgress": {
+    "message": "Cargando conversación... ({count} cargados)"
+  },
+  "conversationExportCancelLoading": {
+    "message": "Cancelar carga"
+  },
+  "conversationExportExporting": {
+    "message": "Exportando..."
+  },
+  "conversationExportDone": {
+    "message": "Conversación exportada"
+  },
+  "conversationExportFailed": {
+    "message": "Error al exportar"
+  },
+  "conversationExportNoConversation": {
+    "message": "No se encontró ninguna conversación para exportar"
+  },
+  "conversationExportNeedSelect": {
+    "message": "Selecciona al menos 1 mensaje"
+  },
+  "conversationExportImageCannotEmbed": {
+    "message": "No se puede incrustar la imagen"
+  },
+  "conversationExportImageNotRendered": {
+    "message": "La imagen no se ha renderizado y no se puede incrustar (desplázate a ese mensaje e inténtalo de nuevo)"
+  },
+  "conversationExportTruncatedNotice": {
+    "message": "Contenido demasiado largo, truncado"
+  },
+  "conversationExportImageListTitle": {
+    "message": "Imagen"
+  },
+  "conversationExportDefaultTitle": {
+    "message": "Exportación de conversación"
+  },
+  "fiveStarReview": {
+    "message": "¿Te gusta"
+  },
+  "goToReview": {
+    "message": "Danos 5 estrellas"
+  },
+  "runBtn": {
+    "message": "Ejecutar"
+  },
+  "runnerLoadFailed": {
+    "message": "No se pudo cargar el ejecutor. Actualiza la página e inténtalo de nuevo."
+  },
+  "themeDark": {
+    "message": "Oscuro"
+  },
+  "themeLight": {
+    "message": "Claro"
+  },
+  "dataSyncTabName": {
+    "message": "Sincronización de datos"
+  },
+  "formulaFormatTitle": {
+    "message": "Seleccionar formato de copia"
+  },
+  "importSuccess": {
+    "message": "Importación exitosa"
+  },
+  "importSuccessHint": {
+    "message": "Los datos se han importado correctamente. Por favor actualice la página"
+  },
+  "importFailed": {
+    "message": "Error en la importación"
+  },
+  "refreshPage": {
+    "message": "Actualizar página"
+  },
+  "refreshLater": {
+    "message": "Actualizar más tarde"
+  },
+  "quickAsk": {
+    "message": "Preguntar más"
+  },
+  "highlightToggleTitle": {
+    "message": "Activar resaltado de texto"
+  },
+  "highlightToggleHint": {
+    "message": "Al activar, puedes resaltar el texto seleccionado en páginas web"
+  },
+  "highlightColorTitle": {
+    "message": "Color de resaltado"
+  },
+  "highlightMark": {
+    "message": "Resaltar"
+  },
+  "highlightRemoveConfirm": {
+    "message": "¿Eliminar este resaltado?"
+  },
+  "highlightRemoveYes": {
+    "message": "Eliminar"
+  },
+  "highlightRemoveNo": {
+    "message": "Cancelar"
+  },
+  "scrollToBottomTitle": {
+    "message": "Ir al final"
+  },
+  "scrollToBottomHint": {
+    "message": "Mostrar botón rápido para volver al mensaje más reciente"
+  },
+  "pleaseWait": {
+    "message": "Por favor espere, el ID del nodo se está cargando..."
+  },
+  "chatTimeLabelTitle": {
+    "message": "Mostrar hora del chat"
+  },
+  "chatTimeLabelHint": {
+    "message": "Mostrar hora de envío en cada mensaje, tan claro como un historial de chat"
+  },
+  "exportTitle": {
+    "message": "Sincronización manual"
+  },
+  "exportHint": {
+    "message": "Copia de seguridad o restauración manual de datos mediante archivo JSON para migrar a otros navegadores."
+  },
+  "gdriveTitle": {
+    "message": "Sincronización con Google Drive"
+  },
+  "gdriveHint": {
+    "message": "Haz una copia de seguridad en tu Google Drive para sincronizar entre dispositivos."
+  },
+  "mermaidTabName": {
+    "message": "Mermaid"
+  },
+  "mermaidSettingsTitle": {
+    "message": "Renderizado de diagramas Mermaid"
+  },
+  "mermaidSettingsHint": {
+    "message": "Renderizar automáticamente bloques de código Mermaid como diagramas interactivos"
+  },
+  "mermaidDiagramBtn": {
+    "message": "Diagrama"
+  },
+  "mermaidCodeBtn": {
+    "message": "Código"
+  },
+  "mermaidFullscreen": {
+    "message": "Pantalla completa"
+  },
+  "mermaidViewerHint": {
+    "message": "Desplazar para zoom · Arrastrar para mover · ESC para cerrar"
+  },
+  "notepadToggleHint": {
+    "message": "Show notepad entry at the bottom of the timeline for quick notes"
+  },
+  "notepadTitle": {
+    "message": "Flash Notes"
+  },
+  "notepadPlaceholder": {
+    "message": "Just write what comes to mind…"
+  },
+  "notepadClose": {
+    "message": "Close"
+  },
+  "notepadAllNotes": {
+    "message": "All Notes"
+  },
+  "notepadNewNote": {
+    "message": "New Note"
+  },
+  "notepadConfirmDeleteTitle": {
+    "message": "Confirm Delete"
+  },
+  "notepadConfirmDeleteContent": {
+    "message": "This cannot be undone. Are you sure?"
+  },
+  "notepadUntitled": {
+    "message": "Untitled"
+  },
+  "notepadYesterday": {
+    "message": "Yesterday"
+  },
+  "notepadSaveToFolder": {
+    "message": "Guardar en carpeta"
+  },
+  "formulaCopyTypeTitle": {
+    "message": "Tipo de copia de fórmula"
+  },
+  "formulaCopyMathML": {
+    "message": "Copiar fórmula MathML"
+  },
+  "formulaCopyGeneric": {
+    "message": "Copiar fórmula"
+  },
+  "formulaLatexTitle": {
+    "message": "Copiar fórmula LaTeX"
+  },
+  "formulaLatexHint": {
+    "message": "Haz clic en una fórmula para copiarla en formato LaTeX"
+  },
+  "formulaMathMLTitle": {
+    "message": "Copiar fórmula MathML"
+  },
+  "formulaMathMLHint": {
+    "message": "Haz clic en una fórmula para copiarla en formato MathML, se puede pegar directamente en Word"
+  },
+  "aboutTabName": {
+    "message": "Acerca de"
+  },
+  "aboutPluginTitle": {
+    "message": "Sobre la extensión"
+  },
+  "aboutPluginContent": {
+    "message": "Timeline es una extensión de productividad para conversaciones con IA en el navegador, con línea de tiempo, carpetas, resaltado de texto, copia de fórmulas LaTeX, prompts personalizados y mucho más — lleva tu eficiencia al máximo. Compatible con ChatGPT, Gemini, Claude, DeepSeek, Kimi, Doubao, Qwen y todas las principales plataformas de IA."
+  },
+  "aboutDataSecurityTitle": {
+    "message": "Seguridad de datos"
+  },
+  "aboutDataSecurityContent": {
+    "message": "Todos tus datos se almacenan localmente en tu navegador o en tu Google Drive. La extensión no recopila, sube ni comparte ningún contenido de tus conversaciones ni información personal. Este proyecto es de código abierto en GitHub, y el código está disponible para revisión en cualquier momento."
+  },
+  "aboutDeveloperTitle": {
+    "message": "Feedback"
+  },
+  "aboutDeveloperContent": {
+    "message": "Este proyecto lo mantenemos Claude Opus 4.6 y yo juntos, con un ritmo de 1–2 versiones nuevas por semana. Para solicitar una función o reportar un bug, contáctame por los canales a continuación (te responderé en cuanto lo vea):"
+  },
+  "aboutShareTitle": {
+    "message": "Recomendar a amigos"
+  },
+  "aboutShareContent": {
+    "message": "Si Timeline te resulta útil, no dudes en publicar una reseña en Xiaohongshu, Bilibili, X, Reddit, YouTube u otras plataformas para ayudar a que más personas lo descubran. Gracias. ❤️"
+  },
+  "nativeMenuStarToFolder": {
+    "message": "Star to Folder"
+  },
+  "nativeMenuAlreadyStarred": {
+    "message": "Already starred"
+  },
+  "nativeMenuStarSuccess": {
+    "message": "Starred successfully"
+  },
+  "animViewMore": {
+    "message": "Cambiar mascota"
+  },
+  "dragMoveSuccess": {
+    "message": "Movido"
+  },
+  "starredHelpDesc": {
+    "message": "Folders help you organize conversations and stay clutter-free."
+  },
+  "starredHelpTipsTitle": {
+    "message": "Quick tips:"
+  },
+  "starredHelpTip1": {
+    "message": "Drag conversations into a folder."
+  },
+  "starredHelpTip2": {
+    "message": "Drag items within a folder to reorder."
+  },
+  "starredHelpTip3": {
+    "message": "Drag subfolders to reorder."
+  },
+  "starredHelpTip4": {
+    "message": "Double-click a folder or item to edit."
+  },
+  "folderMoveHasChildren": {
+    "message": "Has subfolders, cannot nest further"
+  },
+  "folderMoveMaxDepth": {
+    "message": "Maximum folder depth reached"
+  },
+  "guideSubtitle": {
+    "message": "AI conversation enhancement extension"
+  },
+  "guideTitle": {
+    "message": "Quick Start"
+  },
+  "guideStep1": {
+    "message": "Open an AI platform you use."
+  },
+  "guideStep2": {
+    "message": "Start a conversation."
+  },
+  "guideStep3": {
+    "message": "If a timeline appears on the right side of the conversation page, the installation is successful. If not, please refresh the page."
+  },
+  "guidePlatformsTitle": {
+    "message": "Supported Platforms"
+  },
+  "highlightStyleTitle": {
+    "message": "Estilo de resaltado"
+  },
+  "highlightStyleFullCover": {
+    "message": "Cobertura total"
+  },
+  "highlightStyleFullCoverDesc": {
+    "message": "El resaltado cubre todo el texto"
+  },
+  "highlightStyleHalfCover": {
+    "message": "Media cobertura"
+  },
+  "highlightStyleHalfCoverDesc": {
+    "message": "El resaltado cubre la mitad inferior del texto"
+  },
+  "highlightStyleUnderline": {
+    "message": "Subrayado"
+  },
+  "highlightStyleUnderlineDesc": {
+    "message": "El resaltado aparece debajo del texto"
+  },
+  "highlightStyleTextOnly": {
+    "message": "Solo texto"
+  },
+  "highlightStyleTextOnlyDesc": {
+    "message": "Sin fondo, solo color de texto"
+  },
+  "highlightMyColors": {
+    "message": "Colores de resaltado"
+  },
+  "highlightColorPlaceholder": {
+    "message": "#FF5733"
+  },
+  "highlightMaxColors": {
+    "message": "Máximo 15 colores"
+  },
+  "highlightDeleteColorConfirm": {
+    "message": "¿Eliminar el color {color}?"
+  },
+  "highlightAddColorTitle": {
+    "message": "Añadir color"
+  },
+  "highlightAddColorBtn": {
+    "message": "Color"
+  },
+  "highlightInvalidHex": {
+    "message": "Formato de color no válido"
+  },
+  "highlightColorExists": {
+    "message": "El color ya existe"
+  },
+  "highlightColorHint": {
+    "message": "Introduce un código de color hexadecimal de 6 dígitos, p. ej. #FF5733"
+  },
+  "highlightAnnotationPlaceholder": {
+    "message": "Ideas…"
+  },
+  "aboutBtnChrome": {
+    "message": "Chrome Instalar"
+  },
+  "aboutBtnEdge": {
+    "message": "Edge Instalar"
+  },
+  "aboutBtnFirefox": {
+    "message": "Firefox Instalar"
+  },
+  "aboutBtnGithub": {
+    "message": "GitHub"
+  },
+  "aboutBtnDocs": {
+    "message": "Documentación"
+  },
+  "changelogTitle": {
+    "message": "¡Timeline actualizado!"
+  },
+  "changelogSubtitle": {
+    "message": "Usado por $1 usuarios. Nueva versión, mejor experiencia."
+  },
+  "changelogFeatures": {
+    "message": "Novedades"
+  },
+  "changelogImprovements": {
+    "message": "Mejoras"
+  },
+  "aboutFeedbackStore": {
+    "message": "Reseñas Chrome Store"
+  },
+  "aboutFeedbackGithub": {
+    "message": "GitHub Issues"
+  },
+  "aboutFeedbackEmail": {
+    "message": "Correo"
+  },
+  "timelineDisplayLabel": {
+    "message": "Mostrar línea de tiempo"
+  },
+  "starredDisplayLabel": {
+    "message": "Mostrar carpetas"
+  },
+  "promptBtnDisplayLabel": {
+    "message": "Mostrar botón de prompts"
+  },
+  "promptBtnSwitch": {
+    "message": "Ajustes"
+  },
+  "formulaFormatNone": {
+    "message": "Sin formato"
+  },
+  "gdriveUploadBtn": {
+    "message": "Subir a la nube"
+  },
+  "gdriveDownloadBtn": {
+    "message": "Descargar de la nube"
+  },
+  "exportLabel": {
+    "message": "Exportar"
+  },
+  "importLabel": {
+    "message": "Importar"
+  },
+  "gdriveUploading": {
+    "message": "Subiendo..."
+  },
+  "gdriveUploadSuccess": {
+    "message": "Subido a Google Drive"
+  },
+  "gdriveUploadFailed": {
+    "message": "Error al subir"
+  },
+  "gdriveDownloading": {
+    "message": "Descargando..."
+  },
+  "gdriveDownloadFailed": {
+    "message": "Error al descargar"
+  },
+  "gdriveNoBackup": {
+    "message": "Sin datos de respaldo en la nube"
+  },
+  "gdriveDataInvalid": {
+    "message": "Formato de datos en la nube no válido"
+  },
+  "gdriveMergeSuccess": {
+    "message": "Datos de la nube combinados"
+  },
+  "gdriveMergeHint": {
+    "message": "Datos descargados y combinados desde Google Drive. Actualiza la página para aplicar."
+  },
+  "chatWidthTitle": {
+    "message": "Ancho del chat"
+  },
+  "chatWidthHint": {
+    "message": "Ampliar el área de conversación para aprovechar la pantalla"
+  },
+  "chatWidthAdjust": {
+    "message": "Ajustar"
+  },
+  "chatWidthCurrent": {
+    "message": "Ancho actual"
+  },
+  "chatWidthNormal": {
+    "message": "Normal"
+  },
+  "chatWidthConfirm": {
+    "message": "OK"
+  },
+  "chatWidthUnsupported": {
+    "message": "El ajuste del ancho del chat no es compatible con esta plataforma"
+  },
+  "mirrorSiteTabName": {
+    "message": "Adaptar nueva plataforma"
+  },
+  "mirrorSiteHint": {
+    "message": "Agrega dominios de sitios espejo de IA. Aparecerá un botón flotante en estos sitios, habilitando algunas funciones de esta extensión."
+  },
+  "mirrorSiteAddDomain": {
+    "message": "Agregar"
+  },
+  "mirrorSiteInputPlaceholder": {
+    "message": "Ingresa dominio, ej. chat.example.com"
+  },
+  "mirrorSiteDomainListTitle": {
+    "message": "Dominios agregados"
+  },
+  "mirrorSiteNoDomains": {
+    "message": "No hay dominios agregados"
+  },
+  "mirrorSiteDomainAdded": {
+    "message": "Dominio agregado"
+  },
+  "mirrorSiteDomainRemoved": {
+    "message": "Dominio eliminado"
+  },
+  "mirrorSiteDomainExists": {
+    "message": "El dominio ya existe"
+  },
+  "mirrorSiteDomainInvalid": {
+    "message": "Formato de dominio inválido"
+  },
+  "mirrorSiteDomainIsOfficial": {
+    "message": "Este dominio ya es una plataforma oficial compatible"
+  },
+  "mirrorSiteCopied": {
+    "message": "Copiado al portapapeles"
+  },
+  "mirrorSiteCreateAdapterTitle": {
+    "message": "Configure custom platform"
+  },
+  "mirrorSiteCreateAdapterHint": {
+    "message": "Use a guided flow to generate selector config with AI for this site."
+  },
+  "mirrorSiteAdapterBadge": {
+    "message": "Timeline adapter"
+  },
+  "mirrorSiteAdapterHeroTitle": {
+    "message": "Adapt a new AI platform"
+  },
+  "mirrorSiteAdapterHeroDesc": {
+    "message": "¿El sitio de chat de IA que usas no es compatible? Ya sea un chat de IA interno de tu empresa o un sitio de IA poco común, puedes solicitar una adaptación. Una vez adaptado, podrás desbloquear funciones como «Cronología», «prompts» y «notas rápidas»."
+  },
+  "mirrorSiteAdapterStartButton": {
+    "message": "Start setup"
+  },
+  "mirrorSiteNativeSupportedTitle": {
+    "message": "Plataformas de IA compatibles de forma nativa y sus sitios espejo:"
+  },
+  "mirrorSiteWizardStep1": {
+    "message": "Open the AI site you want to adapt and start a new conversation"
+  },
+  "mirrorSiteWizardStep2": {
+    "message": "Envía en una nueva conversación:"
+  },
+  "mirrorSiteWizardStep3": {
+    "message": "Copy the new conversation page URL and paste it into the input below"
+  },
+  "mirrorSiteUrlInputPlaceholder": {
+    "message": "Pega la URL de la nueva conversación"
+  },
+  "mirrorSiteNextButton": {
+    "message": "Next"
+  },
+  "mirrorSiteUrlRequired": {
+    "message": "Please enter URL"
+  },
+  "mirrorSiteUrlInvalid": {
+    "message": "Invalid URL format"
+  },
+  "mirrorSiteAlreadySupported": {
+    "message": "Este sitio ya está adaptado. No es necesario solicitarlo de nuevo."
+  },
+  "mirrorSiteDemoInfoIntro": {
+    "message": "Starting from the node that contains \"$1\", 10 ancestor demo levels:"
+  },
+  "mirrorSiteDetectWaitingTitle": {
+    "message": "Detectando mensaje 「$1」"
+  },
+  "mirrorSiteDetectWaitingDesc": {
+    "message": "Send it in the current conversation to collect automatically"
+  },
+  "mirrorSiteFeedbackSuccessLine1": {
+    "message": "¡Estructura de la página analizada correctamente! Ve a GitHub para enviar la adaptación."
+  },
+  "mirrorSiteCopyInfo": {
+    "message": "Copy info"
+  },
+  "mirrorSiteGoGithub": {
+    "message": "Enviar adaptación en GitHub"
+  },
+  "mirrorSiteCopyEmail": {
+    "message": "Copy email"
+  },
+  "mirrorSiteEmailCopied": {
+    "message": "Email copied"
+  },
+  "mirrorSiteIssueTitle": {
+    "message": "[Adaptation Request] $1"
+  },
+  "mirrorSiteDemoErrorDomain": {
+    "message": "Domain"
+  },
+  "mirrorSiteDemoErrorStatusTitle": {
+    "message": "Collection status"
+  },
+  "mirrorSiteDemoErrorDetectedButFailed": {
+    "message": "The test message was detected, but page structure collection failed."
+  },
+  "mirrorSiteDemoErrorMessage": {
+    "message": "Error"
+  },
+  "hideStarredFromListLabel": {
+    "message": "Modo deduplicación"
+  },
+  "hideStarredFromListHint": {
+    "message": "Al activarlo, las conversaciones añadidas a carpetas se ocultarán de la barra lateral"
+  },
+  "timelineAICompleteNotLatestToast": {
+    "message": "La respuesta de $1 ha finalizado."
+  },
+  "timelineAICompleteToastTitle": {
+    "message": "Aviso al completar respuesta de IA"
+  },
+  "timelineAICompleteToastHint": {
+    "message": "Muestra un recordatorio emergente en la esquina superior derecha de la página cuando termina una respuesta de IA"
+  },
+  "timelineAICompleteSoundHint": {
+    "message": "Recordatorio sonoro cuando termina una respuesta de IA"
+  },
+  "preventAutoScrollLabel": {
+    "message": "Mantener la posición de lectura al enviar"
+  },
+  "preventAutoScrollHint": {
+    "message": "Cuando envías un mensaje mientras ves el historial anterior, la página permanece en tu posición de lectura actual en lugar de saltar al final"
+  },
+  "timelineThemeColorLabel": {
+    "message": "Color del tema de la línea de tiempo"
+  },
+  "timelineThemeColorHint": {
+    "message": "Configura el color del tema del marcador activo de la línea de tiempo para cada plataforma"
+  },
+  "timelineThemeColorManageButton": {
+    "message": "Configurar"
+  },
+  "geminiWatermarkTitle": {
+    "message": "Eliminador de marca de agua Nano Banana"
+  },
+  "geminiWatermarkHint": {
+    "message": "Muestra opciones de descarga con eliminación de marca de agua en imágenes generadas por Gemini, para descargar la imagen original o una imagen sin la marca de agua inferior derecha."
+  },
+  "geminiWatermarkDownload": {
+    "message": "Descargar imagen sin marca de agua"
+  },
+  "geminiWatermarkDownloadOriginal": {
+    "message": "Descargar imagen original"
+  },
+  "geminiWatermarkErrorGeneric": {
+    "message": "No se pudo quitar la marca de agua"
+  },
+  "geminiWatermarkErrorNoImage": {
+    "message": "No se encontró ninguna imagen para procesar"
+  },
+  "geminiWatermarkErrorTooSmall": {
+    "message": "La imagen es demasiado pequeña para quitar la marca de agua"
+  },
+  "geminiWatermarkErrorNoWatermark": {
+    "message": "No se detectó marca de agua de Gemini"
+  },
+  "geminiWatermarkErrorUnreadable": {
+    "message": "No se pueden leer los píxeles (seguridad del navegador). Pruebe a descargar la original"
+  },
+  "languageSettingLabel": {
+    "message": "Idioma de la interfaz"
+  },
+  "languageOptionAuto": {
+    "message": "Seguir el idioma del navegador"
+  },
+  "languageChangeFailed": {
+    "message": "No se pudo cambiar el idioma de la interfaz"
+  },
+  "timelineAICompleteReminderHint": {
+    "message": "Recordatorios emergentes y sonoros cuando termina una respuesta de IA."
+  },
+  "timelineAICompleteToastOptionTitle": {
+    "message": "Recordatorio emergente"
+  },
+  "timelineAICompleteSoundOptionTitle": {
+    "message": "Recordatorio sonoro"
+  },
+  "viewChangelogTooltip": {
+    "message": "Ver historial de cambios"
+  }
+}

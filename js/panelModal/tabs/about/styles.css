@@ -1,0 +1,201 @@
+/**
+ * About Tab Styles - 认识我们
+ */
+
+.about-tab {
+    padding: 0;
+    margin-top: -20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+/* 区块 */
+.about-section {
+    display: flex;
+    gap: 14px;
+    padding: 16px;
+    background: #f9fafb;
+    border-radius: 10px;
+    align-items: flex-start;
+}
+
+/* 高亮区块（恳请支持） */
+.about-section-highlight {
+    background: #ede9fe;
+    border: 1px solid #c4b5fd;
+}
+
+/* 图标 */
+.about-section-icon {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #374151;
+}
+
+.about-section-highlight .about-section-icon {
+    background: #ddd6fe;
+    border-color: #c4b5fd;
+    color: #6d28d9;
+}
+
+/* 内容区 */
+.about-section-body {
+    flex: 1;
+    min-width: 0;
+}
+
+/* 区块标题 */
+.about-section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #111827;
+    margin-bottom: 6px;
+}
+
+/* 区块内容 */
+.about-section-content {
+    font-size: 13px;
+    color: #4b5563;
+    line-height: 1.7;
+}
+
+/* 链接 */
+.about-link {
+    color: #2563eb;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.about-link:hover {
+    text-decoration: underline;
+}
+
+/* 反馈渠道块状 */
+.about-feedback-blocks {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.about-feedback-block {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 12px 8px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    text-decoration: none;
+    color: #374151;
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+}
+
+.about-feedback-block:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+    color: #111827;
+}
+
+.about-feedback-block svg {
+    color: #6b7280;
+}
+
+.about-feedback-block:hover svg {
+    color: #374151;
+}
+
+.about-feedback-email {
+    cursor: pointer;
+}
+
+/* 分享操作按钮组 */
+.about-share-actions {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 6px;
+    margin-top: 14px;
+}
+
+.about-share-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 7px 10px;
+    flex: 1;
+    background: linear-gradient(180deg, #ffffff 0%, #eef0f4 50%, #e2e5eb 100%);
+    border: 1px solid #c5c8d0;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #2d2d34;
+    text-decoration: none;
+    white-space: nowrap;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.9);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), inset 0 1px 0 #ffffff, inset 0 -1px 0 rgba(0, 0, 0, 0.04);
+    transition: all 0.15s ease;
+}
+
+.about-share-action-btn:hover {
+    background: linear-gradient(180deg, #ffffff 0%, #f3f4f8 50%, #e8eaef 100%);
+    border-color: #adb1bc;
+    color: #111118;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12), inset 0 1px 0 #ffffff, inset 0 -1px 0 rgba(0, 0, 0, 0.04);
+}
+
+.about-share-action-btn:active {
+    background: linear-gradient(180deg, #eef0f4 0%, #e2e5eb 100%);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* 小红书投流收集（嵌在想请你帮个忙块内） */
+.about-xhs-collect {
+    margin-top: 12px;
+}
+
+.about-xhs-collect-tip {
+    font-size: 12px;
+    color: #5b21b6;
+    line-height: 1.6;
+    margin-bottom: 10px;
+}
+
+.about-xhs-collect-tip strong {
+    color: #7c3aed;
+    font-weight: 600;
+}
+
+.about-xhs-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 14px;
+    background: #e11d48;
+    color: #ffffff;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background 0.12s;
+}
+
+.about-xhs-btn:hover {
+    background: #be123c;
+    color: #ffffff;
+}
+
+/* 功能文档按钮 - 同金属质感，无额外覆盖 */

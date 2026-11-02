@@ -1,0 +1,196 @@
+/**
+ * Global Tooltip Manager Styles
+ * 
+ * 通用 Tooltip 组件样式
+ * 
+ * 对应 JS: ./index.js
+ * 
+ * 包含内容：
+ * - 基础 tooltip 样式
+ * - 主题变体（深色/浅色）
+ * - 箭头样式（上下左右）
+ * - 显示/隐藏动画
+ * 
+ * @requires ../../../styles/variables.css
+ */
+
+/* ============================================
+   通用 Tooltip 基础样式
+   ============================================ */
+
+/* 基础 tooltip 样式 */
+.timeline-tooltip-base {
+    position: fixed;
+    border-radius: 8px;
+    padding: 8px 12px;
+    box-sizing: border-box;
+    background-color: var(--timeline-tooltip-bg);
+    color: var(--timeline-tooltip-text);
+    border: 1px solid var(--timeline-tooltip-border);
+    font-size: 15px;
+    font-weight: 500;
+    line-height: 1.5;
+    white-space: normal;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    word-break: break-word;
+    max-width: 400px;
+    z-index: 2147483648;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+    pointer-events: none;
+}
+
+.timeline-tooltip-base.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* 黑色背景 tooltip（用于降级逻辑） */
+.timeline-tooltip-dark {
+    background-color: var(--timeline-tooltip-bg);
+    color: var(--timeline-tooltip-text);
+    border: 1px solid var(--timeline-tooltip-border);
+}
+
+/* 白色背景 tooltip（用于降级逻辑） */
+.timeline-tooltip-light {
+    background-color: #f8fafc;
+    color: #334155;
+    border: 1px solid #e2e8f0;
+}
+
+/* ============================================
+   Tooltip 箭头样式（所有 tooltip 共用）
+   ============================================ */
+
+/* 箭头基础样式：before 负责边框，after 负责填充，避免旋转方块在浅色主题下露出交界边 */
+.timeline-tooltip::before,
+.timeline-tooltip-base::before,
+.timeline-tooltip::after,
+.timeline-tooltip-base::after {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 0;
+    background: transparent;
+    pointer-events: none;
+}
+
+/* 显示在上方时，箭头在底部指向下方 */
+.timeline-tooltip[data-placement="top"]::before,
+.timeline-tooltip-base[data-placement="top"]::before {
+    bottom: -8px;
+    left: var(--arrow-offset, 50%);
+    margin-left: -8px;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-top: 8px solid var(--timeline-tooltip-border);
+}
+
+.timeline-tooltip[data-placement="top"]::after,
+.timeline-tooltip-base[data-placement="top"]::after {
+    bottom: -6px;
+    left: var(--arrow-offset, 50%);
+    margin-left: -7px;
+    border-left: 7px solid transparent;
+    border-right: 7px solid transparent;
+    border-top: 7px solid var(--timeline-tooltip-bg);
+}
+
+/* 显示在下方时，箭头在顶部指向上方 */
+.timeline-tooltip[data-placement="bottom"]::before,
+.timeline-tooltip-base[data-placement="bottom"]::before {
+    top: -8px;
+    left: var(--arrow-offset, 50%);
+    margin-left: -8px;
+    border-left: 8px solid transparent;
+    border-right: 8px solid transparent;
+    border-bottom: 8px solid var(--timeline-tooltip-border);
+}
+
+.timeline-tooltip[data-placement="bottom"]::after,
+.timeline-tooltip-base[data-placement="bottom"]::after {
+    top: -6px;
+    left: var(--arrow-offset, 50%);
+    margin-left: -7px;
+    border-left: 7px solid transparent;
+    border-right: 7px solid transparent;
+    border-bottom: 7px solid var(--timeline-tooltip-bg);
+}
+
+/* 显示在左侧时，箭头在右边指向右方 */
+.timeline-tooltip[data-placement="left"]::before,
+.timeline-tooltip-base[data-placement="left"]::before {
+    right: -8px;
+    top: var(--arrow-offset, 50%);
+    margin-top: -8px;
+    border-top: 8px solid transparent;
+    border-bottom: 8px solid transparent;
+    border-left: 8px solid var(--timeline-tooltip-border);
+}
+
+.timeline-tooltip[data-placement="left"]::after,
+.timeline-tooltip-base[data-placement="left"]::after {
+    right: -6px;
+    top: var(--arrow-offset, 50%);
+    margin-top: -7px;
+    border-top: 7px solid transparent;
+    border-bottom: 7px solid transparent;
+    border-left: 7px solid var(--timeline-tooltip-bg);
+}
+
+/* 显示在右侧时，箭头在左边指向左方 */
+.timeline-tooltip[data-placement="right"]::before,
+.timeline-tooltip-base[data-placement="right"]::before {
+    left: -8px;
+    top: var(--arrow-offset, 50%);
+    margin-top: -8px;
+    border-top: 8px solid transparent;
+    border-bottom: 8px solid transparent;
+    border-right: 8px solid var(--timeline-tooltip-border);
+}
+
+.timeline-tooltip[data-placement="right"]::after,
+.timeline-tooltip-base[data-placement="right"]::after {
+    left: -6px;
+    top: var(--arrow-offset, 50%);
+    margin-top: -7px;
+    border-top: 7px solid transparent;
+    border-bottom: 7px solid transparent;
+    border-right: 7px solid var(--timeline-tooltip-bg);
+}
+
+/* 无箭头 tooltip */
+.timeline-tooltip-no-arrow::before,
+.timeline-tooltip-no-arrow::after {
+    display: none !important;
+}
+
+/* ============================================
+   二级悬浮 Tooltip（showOverlay）
+   ============================================ */
+
+.timeline-tooltip-overlay {
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    white-space: nowrap;
+    background: #333;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    transition: opacity 0.12s ease;
+}
+
+.timeline-tooltip-overlay[data-theme="light"] {
+    background: #fff;
+    color: #1f2937;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.timeline-tooltip-overlay.visible {
+    opacity: 1;
+}

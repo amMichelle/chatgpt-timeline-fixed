@@ -1,0 +1,143 @@
+/**
+ * Formula Styles - 公式交互样式
+ * 
+ * 包含内容：
+ * - 公式 hover 和点击效果
+ * - 公式 tooltip
+ * - 复制反馈样式
+ * 
+ * 支持的公式渲染器：
+ * - KaTeX
+ * - MathJax
+ * - MediaWiki Math
+ * - Meta.ai (img)
+ * 
+ * @requires variables.css
+ */
+
+/* ============================================
+   公式交互样式（FormulaManager）
+   ============================================ */
+
+/* 公式基础交互样式（统一识别 .katex、.mwe-math-element、MathJax 和 Meta.ai img 元素）*/
+.katex.formula-interactive,
+.mwe-math-element.formula-interactive,
+.MathJax_SVG.formula-interactive,
+.MathJax.formula-interactive,
+img.formula-interactive {
+    position: relative;
+    transition: background-color 0.2s ease, transform 0.15s ease;
+    border-radius: 6px;
+}
+
+/* 公式 hover 效果 */
+.katex.formula-interactive.formula-hover,
+.mwe-math-element.formula-interactive.formula-hover,
+.MathJax_SVG.formula-interactive.formula-hover,
+.MathJax.formula-interactive.formula-hover,
+img.formula-interactive.formula-hover {
+    background-color: rgba(0, 0, 0, 0.06) !important;
+    cursor: pointer;
+}
+
+html[data-timeline-theme="dark"] .katex.formula-interactive.formula-hover,
+html[data-timeline-theme="dark"] .mwe-math-element.formula-interactive.formula-hover,
+html[data-timeline-theme="dark"] .MathJax_SVG.formula-interactive.formula-hover,
+html[data-timeline-theme="dark"] .MathJax.formula-interactive.formula-hover,
+html[data-timeline-theme="dark"] img.formula-interactive.formula-hover {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Meta.ai img 公式 hover：outline 比 background 更适合图片 */
+img.formula-interactive.formula-hover {
+    background-color: transparent !important;
+    outline: 2px solid rgba(0, 0, 0, 0.12);
+    outline-offset: 2px;
+}
+
+html[data-timeline-theme="dark"] img.formula-interactive.formula-hover {
+    background-color: transparent !important;
+    outline-color: rgba(255, 255, 255, 0.2);
+}
+
+/* 公式点击效果 */
+.katex.formula-interactive:active,
+.mwe-math-element.formula-interactive:active,
+.MathJax_SVG.formula-interactive:active,
+.MathJax.formula-interactive:active,
+img.formula-interactive:active {
+    transform: scale(0.998);
+}
+
+/* 公式 tooltip（继承通用 tooltip 样式）*/
+.formula-tooltip {
+    font-size: 13px;
+    padding: 6px 8px 6px 14px;
+    white-space: nowrap;
+}
+
+/* tooltip 内部布局：文字 + 设置 icon */
+.formula-tooltip-content {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.formula-tooltip-text {
+    flex-shrink: 0;
+}
+
+.formula-tooltip-settings {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 5px;
+    cursor: pointer;
+    pointer-events: auto;
+    opacity: 0.5;
+    transition: opacity 0.15s, background-color 0.15s;
+    flex-shrink: 0;
+}
+
+.formula-tooltip-settings:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.formula-tooltip-settings:active {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.25);
+}
+
+/* 深色模式 tooltip 下的设置 icon hover */
+[data-tooltip-theme="dark"] .formula-tooltip-settings:hover {
+    background: rgba(0, 0, 0, 0.08);
+}
+
+[data-tooltip-theme="dark"] .formula-tooltip-settings:active {
+    background: rgba(0, 0, 0, 0.15);
+}
+
+.formula-tooltip-settings svg {
+    width: 14px;
+    height: 14px;
+    color: currentColor;
+}
+
+/* 公式 dropdown 菜单：不截断文字 */
+.formula-dropdown .global-dropdown-item-label {
+    overflow: visible;
+    text-overflow: unset;
+    white-space: nowrap;
+}
+
+/* 公式复制反馈样式优化 */
+.timeline-copy-feedback {
+    /* 基础样式已定义，这里添加公式特定的优化 */
+    min-width: 80px;
+    text-align: center;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+

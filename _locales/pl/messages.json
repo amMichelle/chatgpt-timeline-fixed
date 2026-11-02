@@ -1,0 +1,1100 @@
+{
+  "extName": {
+    "message": "Timeline: ChatGPT i Gemini czat ulepszony"
+  },
+  "extDescription": {
+    "message": "Oś czasu, foldery, biblioteka promptów, wirtualny zwierzak. Obsługuje DeepSeek, Claude i wszystkie platformy AI."
+  },
+  "qwxpzm": {
+    "message": "Ulubione"
+  },
+  "hkjvnr": {
+    "message": "Zobacz ulubione"
+  },
+  "zmvkpx": {
+    "message": "Zapisz w folderze"
+  },
+  "bpxjkw": {
+    "message": "Usuń z ulubionych"
+  },
+  "vnkxpm": {
+    "message": "Folder"
+  },
+  "kxpmzv": {
+    "message": "Dodano do ulubionych"
+  },
+  "pzmvkx": {
+    "message": "Usunięto z ulubionych"
+  },
+  "jwvnkp": {
+    "message": "Brak danych"
+  },
+  "zxvkpm": {
+    "message": "Pokaż wszystko"
+  },
+  "qdyqxsc": {
+    "message": "Usunąć z ulubionych?"
+  },
+  "mvkxpz": {
+    "message": "Kopiuj"
+  },
+  "xpzmvk": {
+    "message": "Skopiowano"
+  },
+  "vkpxzm": {
+    "message": "Edytuj"
+  },
+  "kpzmvx": {
+    "message": "Kopiowanie nie powiodło się"
+  },
+  "zmxvkp": {
+    "message": "Proszę wprowadzić"
+  },
+  "commonCancel": {
+    "message": "Anuluj"
+  },
+  "vkmzpx": {
+    "message": "Potwierdź"
+  },
+  "mzpxvk": {
+    "message": "Tytuł nie może być pusty"
+  },
+  "folderRequired": {
+    "message": "Proszę wybrać folder"
+  },
+  "defaultFolder": {
+    "message": "Domyślny"
+  },
+  "pinItem": {
+    "message": "Przypnij"
+  },
+  "unpinItem": {
+    "message": "Odepnij"
+  },
+  "searchPrompt": {
+    "message": "Szukaj promptów..."
+  },
+  "promptCommonSettingsTab": {
+    "message": "Typowe ustawienia"
+  },
+  "promptEmptyHint": {
+    "message": "Zapisz często używane prompty, a potem wstawiaj je do pola wprowadzania jednym kliknięciem."
+  },
+  "promptAllSettingsTooltip": {
+    "message": "Wszystkie ustawienia"
+  },
+  "shareExtension": {
+    "message": "Udostępnij rozszerzenie"
+  },
+  "promptCommonSmartInputHint": {
+    "message": "W polu czatu ustaw, jak klawisz Enter steruje nowymi wierszami i wysyłaniem wiadomości"
+  },
+  "promptCommonFeedbackTitle": {
+    "message": "Zgłoś problem lub zaproponuj funkcję"
+  },
+  "promptCommonFeedbackHint": {
+    "message": "Masz błąd lub pomysł na funkcję? Zostaw opinię w sekcji recenzji sklepu z rozszerzeniami."
+  },
+  "promptCommonFeedbackButton": {
+    "message": "Przekaż opinię"
+  },
+  "promptCommonGithubStarTitle": {
+    "message": "Wesprzyj 🌟"
+  },
+  "promptCommonGithubStarHint": {
+    "message": "Jeśli Timeline jest przydatny, wesprzyj go gwiazdką na GitHubie."
+  },
+  "promptCommonMirrorSiteHint": {
+    "message": "Dostosuj inne strony czatu AI, aby odblokować oś czasu, prompty, szybkie notatki i inne funkcje."
+  },
+  "promptCommonGithubStarButton": {
+    "message": "Przejdź do GitHuba"
+  },
+  "timelineToggleCollapseTooltip": {
+    "message": "Zwiń oś czasu"
+  },
+  "timelineToggleExpandTooltip": {
+    "message": "Rozwiń oś czasu"
+  },
+  "sidebarStarredHint": {
+    "message": "Po włączeniu foldery są wyświetlane na pasku bocznym"
+  },
+  "sidebarStarredManage": {
+    "message": "Ustawienia"
+  },
+  "sidebarStarredManageTitle": {
+    "message": "Ulubione na pasku bocznym"
+  },
+  "pinAction": {
+    "message": "Oznacz jako ważne"
+  },
+  "unpinAction": {
+    "message": "Usuń oznaczenie ważnego"
+  },
+  "starAction": {
+    "message": "Zapisz w folderze"
+  },
+  "unstarAction": {
+    "message": "Usuń z zapisanych"
+  },
+  "questionListTitle": {
+    "message": "Pytania"
+  },
+  "questionListEmpty": {
+    "message": "Brak pytań"
+  },
+  "animTabTitle": {
+    "message": "Cyfrowy zwierzak"
+  },
+  "animTabDesc": {
+    "message": "Wyświetlane nad oknem czatu. Słodkie zwierzątka spacerują, gdy AI odpowiada."
+  },
+  "animSnail": {
+    "message": "Parada ślimaków"
+  },
+  "animZombie": {
+    "message": "Marsz zombie"
+  },
+  "animAnt": {
+    "message": "Marsz mrówek"
+  },
+  "animWizard": {
+    "message": "Czarodziej"
+  },
+  "animTabEmpty": {
+    "message": "Brak dostępnych animacji"
+  },
+  "animGrowHint": {
+    "message": "Jeszcze {n} wiadomości"
+  },
+  "xvkpmz": {
+    "message": "Zmień nazwę"
+  },
+  "pzmkvx": {
+    "message": "Treść nie może być pusta"
+  },
+  "vxpzmk": {
+    "message": "Open Source"
+  },
+  "mkvxpz": {
+    "message": "Gwiazdka dla projektu"
+  },
+  "xpzmkv": {
+    "message": "Witamy"
+  },
+  "pkmzvx": {
+    "message": "Udostępnij znajomym"
+  },
+  "mvxkpz": {
+    "message": "Kopiuj formułę LaTeX"
+  },
+  "kxvpmz": {
+    "message": "Nowy folder"
+  },
+  "vpmzkx": {
+    "message": "Nowy podfolder"
+  },
+  "mzxvkp": {
+    "message": "Usuń"
+  },
+  "pkxvmz": {
+    "message": "Folder domyślny"
+  },
+  "xmkvpz": {
+    "message": "Utwórz podfolder w \"{folderName}\""
+  },
+  "vzkpmx": {
+    "message": "Wprowadź nazwę folderu"
+  },
+  "kmxpvz": {
+    "message": "Nazwa folderu nie może być pusta"
+  },
+  "pxmzvk": {
+    "message": "Edytuj folder"
+  },
+  "mvzxkp": {
+    "message": "Wprowadź nową nazwę"
+  },
+  "kpvzmx": {
+    "message": "Nazwa folderu już istnieje"
+  },
+  "xzvkpm": {
+    "message": "Utworzono pomyślnie"
+  },
+  "vmkxpz": {
+    "message": "Zaktualizowano pomyślnie"
+  },
+  "zpxmkv": {
+    "message": "Folder nie znaleziony"
+  },
+  "kvpzmx": {
+    "message": "Folder usunięty"
+  },
+  "mxkvzp": {
+    "message": "Usuwanie nie powiodło się"
+  },
+  "pzvkmx": {
+    "message": "Przeniesiono pomyślnie"
+  },
+  "vxkpmz": {
+    "message": "Przenieś do"
+  },
+  "wjxnkp": {
+    "message": "{count} ulubionych elementów zostanie również usuniętych."
+  },
+  "qzmvkx": {
+    "message": "Czy na pewno chcesz usunąć folder \"{folderName}\"?"
+  },
+  "mvkzpx": {
+    "message": "Szukaj..."
+  },
+  "kxzpmv": {
+    "message": "Zapisz w"
+  },
+  "vmzpkx": {
+    "message": "Folder domyślny"
+  },
+  "pkmvxz": {
+    "message": "Tytuł"
+  },
+  "pxkmvz": {
+    "message": "Oś czasu"
+  },
+  "mzkvxp": {
+    "message": "Po włączeniu oś czasu jest wyświetlana po prawej stronie strony rozmowy AI"
+  },
+  "vkpmzx": {
+    "message": "Użyj klawiszy ↑ / ↓ do nawigacji między węzłami rozmowy"
+  },
+  "xpvmkz": {
+    "message": "Po włączeniu, użyj klawiszy ↑ / ↓ do szybkiego przeskakiwania między węzłami rozmowy."
+  },
+  "pxmzkv": {
+    "message": "Oznacz ważne rozmowy"
+  },
+  "kzxvpm": {
+    "message": "Przytrzymaj węzeł rozmowy na osi czasu, aby oznaczyć go jako ważny."
+  },
+  "xmvkpz": {
+    "message": "Pole wejściowe"
+  },
+  "kvzmxp": {
+    "message": "Nowa linia i wysyłanie"
+  },
+  "kpxvmz": {
+    "message": "Kopiuj formułę"
+  },
+  "zmkvpx": {
+    "message": "Kopiuj formułę LaTeX"
+  },
+  "vxkpzm": {
+    "message": "Po włączeniu automatycznie wykrywa formuły na stronie i kliknij, aby skopiować w formacie LaTeX."
+  },
+  "mkvzpx": {
+    "message": "Obsługiwane platformy"
+  },
+  "vxmkpz": {
+    "message": "Klawisz Enter: naciśnij raz dla nowej linii, dwa razy dla wysłania"
+  },
+  "mkpxvz": {
+    "message": "Po włączeniu, w polu wprowadzania czatu AI, naciśnij Enter dla nowej linii, {mode} aby wysłać wiadomość."
+  },
+  "qoytxz": {
+    "message": "Ta funkcja jest domyślnie włączona i nie może być wyłączona"
+  },
+  "hosegod": {
+    "message": "Prompts"
+  },
+  "hobsidbg": {
+    "message": "Zapisz prompty, aby szybko z nich korzystać. Po włączeniu, przycisk promptu zostanie wyświetlony po lewej stronie okna czatu."
+  },
+  "biwhckdj": {
+    "message": "Lista promptów"
+  },
+  "byaskjndg": {
+    "message": "Dodaj prompt"
+  },
+  "hsksuywm": {
+    "message": "Edytuj prompt"
+  },
+  "hsuywkw": {
+    "message": "Nazwa promptu"
+  },
+  "hsuywkwPlaceholder": {
+    "message": "Wprowadź nazwę promptu"
+  },
+  "promptContent": {
+    "message": "Treść"
+  },
+  "uwkjwjw": {
+    "message": "Wprowadź treść promptu"
+  },
+  "hsiwhwl": {
+    "message": "Brak promptów"
+  },
+  "shwsuwk": {
+    "message": "Prompt dodany"
+  },
+  "hwkwbhwk": {
+    "message": "Prompt zaktualizowany"
+  },
+  "qrtypd": {
+    "message": "Prompt usunięty"
+  },
+  "dcnfmq": {
+    "message": "Czy na pewno chcesz usunąć ten prompt?"
+  },
+  "svkbtn": {
+    "message": "Zapisz"
+  },
+  "pmpknd": {
+    "message": "Przypięty"
+  },
+  "pmuknp": {
+    "message": "Odpięty"
+  },
+  "addkbt": {
+    "message": "Dodaj"
+  },
+  "ptfmsl": {
+    "message": "Dotyczy"
+  },
+  "allptfm": {
+    "message": "Wszystkie platformy AI"
+  },
+  "febhyejd": {
+    "message": "Prześlij opinię online"
+  },
+  "runnerTabName": {
+    "message": "Uruchamianie kodu"
+  },
+  "runnerSettingsTitle": {
+    "message": "Obsługiwane języki"
+  },
+  "runnerSettingsHint": {
+    "message": "Po włączeniu na blokach kodu pojawi się przycisk Run do bezpośredniego uruchamiania kodu"
+  },
+  "conversationExportButtonTooltip": {
+    "message": "Eksportuj rozmowę"
+  },
+  "conversationExportModalTitle": {
+    "message": "Eksportuj rozmowę"
+  },
+  "conversationExportSectionRange": {
+    "message": "Zakres eksportu"
+  },
+  "conversationExportSectionFormat": {
+    "message": "Format eksportu"
+  },
+  "conversationExportSectionHeader": {
+    "message": "Więcej opcji"
+  },
+  "conversationExportSectionTheme": {
+    "message": "Kolor motywu"
+  },
+  "conversationExportSectionList": {
+    "message": "Wybierz wiadomości"
+  },
+  "conversationExportRangeAll": {
+    "message": "Cała rozmowa"
+  },
+  "conversationExportRangeSelect": {
+    "message": "Wybierz wiadomości"
+  },
+  "conversationExportHeaderShowUrl": {
+    "message": "Adres URL rozmowy"
+  },
+  "conversationExportHeaderShowTime": {
+    "message": "Czas eksportu"
+  },
+  "conversationExportHeaderShowConversationTime": {
+    "message": "Czas wiadomości"
+  },
+  "conversationExportAskTimeLabel": {
+    "message": "Zadano o"
+  },
+  "conversationExportSourceLabel": {
+    "message": "Adres URL rozmowy"
+  },
+  "conversationExportTimeLabel": {
+    "message": "Czas eksportu"
+  },
+  "conversationExportTitleLabel": {
+    "message": "Tytuł"
+  },
+  "conversationExportSelectAll": {
+    "message": "Zaznacz wszystko"
+  },
+  "conversationExportTurnPrefix": {
+    "message": "Wiadomość"
+  },
+  "conversationExportEmptyAssistant": {
+    "message": "Nie znaleziono odpowiedzi"
+  },
+  "conversationExportEmptyUserPreview": {
+    "message": "(Brak treści tekstowej)"
+  },
+  "conversationExportCancel": {
+    "message": "Anuluj"
+  },
+  "conversationExportConfirm": {
+    "message": "Eksportuj"
+  },
+  "conversationExportLoading": {
+    "message": "Wczytywanie rozmowy..."
+  },
+  "conversationExportLoadingProgress": {
+    "message": "Wczytywanie rozmowy... (wczytano {count})"
+  },
+  "conversationExportCancelLoading": {
+    "message": "Anuluj wczytywanie"
+  },
+  "conversationExportExporting": {
+    "message": "Eksportowanie..."
+  },
+  "conversationExportDone": {
+    "message": "Rozmowa wyeksportowana"
+  },
+  "conversationExportFailed": {
+    "message": "Eksport nie powiódł się"
+  },
+  "conversationExportNoConversation": {
+    "message": "Nie znaleziono rozmowy do eksportu"
+  },
+  "conversationExportNeedSelect": {
+    "message": "Wybierz co najmniej 1 wiadomość"
+  },
+  "conversationExportImageCannotEmbed": {
+    "message": "Nie można osadzić obrazu"
+  },
+  "conversationExportImageNotRendered": {
+    "message": "Obraz nie został wyrenderowany i nie można go osadzić (przewiń do tej tury i spróbuj ponownie)"
+  },
+  "conversationExportTruncatedNotice": {
+    "message": "Treść zbyt długa, skrócono"
+  },
+  "conversationExportImageListTitle": {
+    "message": "Obraz"
+  },
+  "conversationExportDefaultTitle": {
+    "message": "Eksport rozmowy"
+  },
+  "fiveStarReview": {
+    "message": "Podoba Ci się"
+  },
+  "goToReview": {
+    "message": "Oceń nas na 5 gwiazdek"
+  },
+  "runBtn": {
+    "message": "Uruchom"
+  },
+  "runnerLoadFailed": {
+    "message": "Nie udało się załadować modułu uruchamiającego. Odśwież stronę i spróbuj ponownie."
+  },
+  "themeDark": {
+    "message": "Ciemny"
+  },
+  "themeLight": {
+    "message": "Jasny"
+  },
+  "dataSyncTabName": {
+    "message": "Synchronizacja danych"
+  },
+  "formulaFormatTitle": {
+    "message": "Wybierz format kopiowania"
+  },
+  "importSuccess": {
+    "message": "Import zakończony pomyślnie"
+  },
+  "importSuccessHint": {
+    "message": "Dane zostały pomyślnie zaimportowane. Odśwież stronę, aby zastosować"
+  },
+  "importFailed": {
+    "message": "Import nie powiódł się"
+  },
+  "refreshPage": {
+    "message": "Odśwież stronę"
+  },
+  "refreshLater": {
+    "message": "Odśwież później"
+  },
+  "quickAsk": {
+    "message": "Dopytaj"
+  },
+  "highlightToggleTitle": {
+    "message": "Włącz wyróżnianie tekstu"
+  },
+  "highlightToggleHint": {
+    "message": "Po włączeniu możesz wyróżniać zaznaczony tekst na stronach"
+  },
+  "highlightColorTitle": {
+    "message": "Kolor wyróżnienia"
+  },
+  "highlightMark": {
+    "message": "Wyróżnij"
+  },
+  "highlightRemoveConfirm": {
+    "message": "Usunąć to wyróżnienie?"
+  },
+  "highlightRemoveYes": {
+    "message": "Usuń"
+  },
+  "highlightRemoveNo": {
+    "message": "Anuluj"
+  },
+  "scrollToBottomTitle": {
+    "message": "Na dół"
+  },
+  "scrollToBottomHint": {
+    "message": "Pokaż przycisk szybkiego przejścia do najnowszej wiadomości"
+  },
+  "pleaseWait": {
+    "message": "Proszę czekać, ładowanie ID węzła..."
+  },
+  "chatTimeLabelTitle": {
+    "message": "Pokaż czas czatu"
+  },
+  "chatTimeLabelHint": {
+    "message": "Wyświetl czas wysłania przy każdej wiadomości, przejrzyście jak historia czatu"
+  },
+  "exportTitle": {
+    "message": "Ręczna synchronizacja"
+  },
+  "exportHint": {
+    "message": "Ręczne tworzenie kopii zapasowej lub przywracanie danych za pomocą pliku JSON w celu migracji do innych przeglądarek."
+  },
+  "gdriveTitle": {
+    "message": "Synchronizacja Google Drive"
+  },
+  "gdriveHint": {
+    "message": "Utwórz kopię zapasową danych na Google Drive, aby synchronizować między urządzeniami."
+  },
+  "mermaidTabName": {
+    "message": "Mermaid"
+  },
+  "mermaidSettingsTitle": {
+    "message": "Renderowanie diagramów Mermaid"
+  },
+  "mermaidSettingsHint": {
+    "message": "Automatycznie renderuj bloki kodu Mermaid jako interaktywne diagramy"
+  },
+  "mermaidDiagramBtn": {
+    "message": "Diagram"
+  },
+  "mermaidCodeBtn": {
+    "message": "Kod"
+  },
+  "mermaidFullscreen": {
+    "message": "Pełny ekran"
+  },
+  "mermaidViewerHint": {
+    "message": "Przewiń, aby powiększyć · Przeciągnij, aby przesunąć · ESC, aby zamknąć"
+  },
+  "notepadToggleHint": {
+    "message": "Show notepad entry at the bottom of the timeline for quick notes"
+  },
+  "notepadTitle": {
+    "message": "Flash Notes"
+  },
+  "notepadPlaceholder": {
+    "message": "Just write what comes to mind…"
+  },
+  "notepadClose": {
+    "message": "Close"
+  },
+  "notepadAllNotes": {
+    "message": "All Notes"
+  },
+  "notepadNewNote": {
+    "message": "New Note"
+  },
+  "notepadConfirmDeleteTitle": {
+    "message": "Confirm Delete"
+  },
+  "notepadConfirmDeleteContent": {
+    "message": "This cannot be undone. Are you sure?"
+  },
+  "notepadUntitled": {
+    "message": "Untitled"
+  },
+  "notepadYesterday": {
+    "message": "Yesterday"
+  },
+  "notepadSaveToFolder": {
+    "message": "Zapisz w folderze"
+  },
+  "formulaCopyTypeTitle": {
+    "message": "Typ kopiowania formuły"
+  },
+  "formulaCopyMathML": {
+    "message": "Kopiuj formułę MathML"
+  },
+  "formulaCopyGeneric": {
+    "message": "Kopiuj formułę"
+  },
+  "formulaLatexTitle": {
+    "message": "Kopiuj formułę LaTeX"
+  },
+  "formulaLatexHint": {
+    "message": "Kliknij formułę, aby skopiować ją w formacie LaTeX"
+  },
+  "formulaMathMLTitle": {
+    "message": "Kopiuj formułę MathML"
+  },
+  "formulaMathMLHint": {
+    "message": "Kliknij formułę, aby skopiować ją w formacie MathML, można wkleić bezpośrednio do Worda"
+  },
+  "aboutTabName": {
+    "message": "O wtyczce"
+  },
+  "aboutPluginTitle": {
+    "message": "O rozszerzeniu"
+  },
+  "aboutPluginContent": {
+    "message": "Timeline to rozszerzenie zwiększające produktywność w rozmowach z AI w przeglądarce, z osią czasu, folderami, podświetlaniem tekstu, kopiowaniem formuł LaTeX, własnymi promptami i wieloma innymi funkcjami — maksymalna wydajność. Obsługuje ChatGPT, Gemini, Claude, DeepSeek, Kimi, Doubao, Qwen i wszystkie główne platformy AI."
+  },
+  "aboutDataSecurityTitle": {
+    "message": "Bezpieczeństwo danych"
+  },
+  "aboutDataSecurityContent": {
+    "message": "Wszystkie Twoje dane są przechowywane lokalnie w przeglądarce lub na Twoim Google Drive. Rozszerzenie nie zbiera, nie przesyła ani nie udostępnia żadnych treści rozmów ani danych osobowych. Projekt jest open-source na GitHubie, a kod jest dostępny do przeglądu w każdej chwili."
+  },
+  "aboutDeveloperTitle": {
+    "message": "Feedback"
+  },
+  "aboutDeveloperContent": {
+    "message": "Ten projekt jest wspólnie utrzymywany przeze mnie i Claude Opus 4.6, w rytmie 1–2 nowych wersji tygodniowo. Aby poprosić o funkcję lub zgłosić błąd, skontaktuj się ze mną przez poniższe kanały (na pewno odpiszę, gdy to zobaczę):"
+  },
+  "aboutShareTitle": {
+    "message": "Poleć znajomym"
+  },
+  "aboutShareContent": {
+    "message": "Jeśli Timeline jest dla Ciebie przydatny, zachęcam do napisania recenzji na Xiaohongshu, Bilibili, X, Reddit, YouTube lub innych platformach, aby więcej osób mogło go odkryć. Dziękuję. ❤️"
+  },
+  "nativeMenuStarToFolder": {
+    "message": "Star to Folder"
+  },
+  "nativeMenuAlreadyStarred": {
+    "message": "Already starred"
+  },
+  "nativeMenuStarSuccess": {
+    "message": "Starred successfully"
+  },
+  "animViewMore": {
+    "message": "Zmień zwierzaka"
+  },
+  "dragMoveSuccess": {
+    "message": "Przeniesiono"
+  },
+  "starredHelpDesc": {
+    "message": "Folders help you organize conversations and stay clutter-free."
+  },
+  "starredHelpTipsTitle": {
+    "message": "Quick tips:"
+  },
+  "starredHelpTip1": {
+    "message": "Drag conversations into a folder."
+  },
+  "starredHelpTip2": {
+    "message": "Drag items within a folder to reorder."
+  },
+  "starredHelpTip3": {
+    "message": "Drag subfolders to reorder."
+  },
+  "starredHelpTip4": {
+    "message": "Double-click a folder or item to edit."
+  },
+  "folderMoveHasChildren": {
+    "message": "Has subfolders, cannot nest further"
+  },
+  "folderMoveMaxDepth": {
+    "message": "Maximum folder depth reached"
+  },
+  "guideSubtitle": {
+    "message": "AI conversation enhancement extension"
+  },
+  "guideTitle": {
+    "message": "Quick Start"
+  },
+  "guideStep1": {
+    "message": "Open an AI platform you use."
+  },
+  "guideStep2": {
+    "message": "Start a conversation."
+  },
+  "guideStep3": {
+    "message": "If a timeline appears on the right side of the conversation page, the installation is successful. If not, please refresh the page."
+  },
+  "guidePlatformsTitle": {
+    "message": "Supported Platforms"
+  },
+  "highlightStyleTitle": {
+    "message": "Styl podświetlenia"
+  },
+  "highlightStyleFullCover": {
+    "message": "Pełne pokrycie"
+  },
+  "highlightStyleFullCoverDesc": {
+    "message": "Podświetlenie pokrywa cały tekst"
+  },
+  "highlightStyleHalfCover": {
+    "message": "Połowa"
+  },
+  "highlightStyleHalfCoverDesc": {
+    "message": "Podświetlenie pokrywa dolną połowę tekstu"
+  },
+  "highlightStyleUnderline": {
+    "message": "Podkreślenie"
+  },
+  "highlightStyleUnderlineDesc": {
+    "message": "Podświetlenie pod tekstem"
+  },
+  "highlightStyleTextOnly": {
+    "message": "Tylko tekst"
+  },
+  "highlightStyleTextOnlyDesc": {
+    "message": "Bez tła, tylko kolor tekstu"
+  },
+  "highlightMyColors": {
+    "message": "Kolory podświetlenia"
+  },
+  "highlightColorPlaceholder": {
+    "message": "#FF5733"
+  },
+  "highlightMaxColors": {
+    "message": "Maksymalnie 15 kolorów"
+  },
+  "highlightDeleteColorConfirm": {
+    "message": "Usunąć kolor {color}?"
+  },
+  "highlightAddColorTitle": {
+    "message": "Dodaj kolor"
+  },
+  "highlightAddColorBtn": {
+    "message": "Kolor"
+  },
+  "highlightInvalidHex": {
+    "message": "Nieprawidłowy format koloru"
+  },
+  "highlightColorExists": {
+    "message": "Kolor już istnieje"
+  },
+  "highlightColorHint": {
+    "message": "Wprowadź 6-cyfrowy kod koloru hex, np. #FF5733"
+  },
+  "highlightAnnotationPlaceholder": {
+    "message": "Myśli…"
+  },
+  "aboutBtnChrome": {
+    "message": "Chrome Zainstaluj"
+  },
+  "aboutBtnEdge": {
+    "message": "Edge Zainstaluj"
+  },
+  "aboutBtnFirefox": {
+    "message": "Firefox Zainstaluj"
+  },
+  "aboutBtnGithub": {
+    "message": "GitHub"
+  },
+  "aboutBtnDocs": {
+    "message": "Dokumentacja"
+  },
+  "changelogTitle": {
+    "message": "Timeline zaktualizowany!"
+  },
+  "changelogSubtitle": {
+    "message": "Używane przez $1 użytkowników. Nowa wersja, lepsze doświadczenie."
+  },
+  "changelogFeatures": {
+    "message": "Nowości"
+  },
+  "changelogImprovements": {
+    "message": "Ulepszenia"
+  },
+  "aboutFeedbackStore": {
+    "message": "Opinie w Chrome Store"
+  },
+  "aboutFeedbackGithub": {
+    "message": "GitHub Issues"
+  },
+  "aboutFeedbackEmail": {
+    "message": "E-mail"
+  },
+  "timelineDisplayLabel": {
+    "message": "Pokaż oś czasu"
+  },
+  "starredDisplayLabel": {
+    "message": "Pokaż foldery"
+  },
+  "promptBtnDisplayLabel": {
+    "message": "Pokaż przycisk promptów"
+  },
+  "promptBtnSwitch": {
+    "message": "Ustawienia"
+  },
+  "formulaFormatNone": {
+    "message": "Bez opakowania"
+  },
+  "gdriveUploadBtn": {
+    "message": "Prześlij do chmury"
+  },
+  "gdriveDownloadBtn": {
+    "message": "Pobierz z chmury"
+  },
+  "exportLabel": {
+    "message": "Eksportuj"
+  },
+  "importLabel": {
+    "message": "Importuj"
+  },
+  "gdriveUploading": {
+    "message": "Przesyłanie..."
+  },
+  "gdriveUploadSuccess": {
+    "message": "Przesłano na Google Drive"
+  },
+  "gdriveUploadFailed": {
+    "message": "Błąd przesyłania"
+  },
+  "gdriveDownloading": {
+    "message": "Pobieranie..."
+  },
+  "gdriveDownloadFailed": {
+    "message": "Błąd pobierania"
+  },
+  "gdriveNoBackup": {
+    "message": "Brak danych kopii zapasowej w chmurze"
+  },
+  "gdriveDataInvalid": {
+    "message": "Nieprawidłowy format danych w chmurze"
+  },
+  "gdriveMergeSuccess": {
+    "message": "Dane z chmury połączone"
+  },
+  "gdriveMergeHint": {
+    "message": "Dane pobrane i połączone z Google Drive. Odśwież stronę, aby zastosować."
+  },
+  "chatWidthTitle": {
+    "message": "Szerokość czatu"
+  },
+  "chatWidthHint": {
+    "message": "Poszerz obszar konwersacji, aby lepiej wykorzystać ekran"
+  },
+  "chatWidthAdjust": {
+    "message": "Dostosuj"
+  },
+  "chatWidthCurrent": {
+    "message": "Bieżąca szerokość"
+  },
+  "chatWidthNormal": {
+    "message": "Normalna"
+  },
+  "chatWidthConfirm": {
+    "message": "OK"
+  },
+  "chatWidthUnsupported": {
+    "message": "Dostosowanie szerokości czatu nie jest obsługiwane na tej platformie"
+  },
+  "mirrorSiteTabName": {
+    "message": "Dostosuj nową platformę"
+  },
+  "mirrorSiteHint": {
+    "message": "Dodaj domeny lustrzanych stron AI. Na tych stronach pojawi się pływający przycisk umożliwiający korzystanie z niektórych funkcji tego rozszerzenia."
+  },
+  "mirrorSiteAddDomain": {
+    "message": "Dodaj"
+  },
+  "mirrorSiteInputPlaceholder": {
+    "message": "Wpisz domenę, np. chat.example.com"
+  },
+  "mirrorSiteDomainListTitle": {
+    "message": "Dodane domeny"
+  },
+  "mirrorSiteNoDomains": {
+    "message": "Brak dodanych domen"
+  },
+  "mirrorSiteDomainAdded": {
+    "message": "Domena dodana"
+  },
+  "mirrorSiteDomainRemoved": {
+    "message": "Domena usunięta"
+  },
+  "mirrorSiteDomainExists": {
+    "message": "Domena już istnieje"
+  },
+  "mirrorSiteDomainInvalid": {
+    "message": "Nieprawidłowy format domeny"
+  },
+  "mirrorSiteDomainIsOfficial": {
+    "message": "Ta domena jest już oficjalnie wspieraną platformą"
+  },
+  "mirrorSiteCopied": {
+    "message": "Skopiowano do schowka"
+  },
+  "mirrorSiteCreateAdapterTitle": {
+    "message": "Configure custom platform"
+  },
+  "mirrorSiteCreateAdapterHint": {
+    "message": "Use a guided flow to generate selector config with AI for this site."
+  },
+  "mirrorSiteAdapterBadge": {
+    "message": "Timeline adapter"
+  },
+  "mirrorSiteAdapterHeroTitle": {
+    "message": "Adapt a new AI platform"
+  },
+  "mirrorSiteAdapterHeroDesc": {
+    "message": "Używana przez Ciebie strona czatu AI nie jest obsługiwana? Niezależnie czy to wewnętrzny czat AI firmy, czy niszowa strona AI — możesz poprosić o adaptację. Po jej dodaniu odblokujesz funkcje takie jak oś czasu, prompty i szybkie notatki."
+  },
+  "mirrorSiteAdapterStartButton": {
+    "message": "Start setup"
+  },
+  "mirrorSiteNativeSupportedTitle": {
+    "message": "Natywnie obsługiwane platformy AI i ich witryny lustrzane:"
+  },
+  "mirrorSiteWizardStep1": {
+    "message": "Open the AI site you want to adapt and start a new conversation"
+  },
+  "mirrorSiteWizardStep2": {
+    "message": "Wyślij w nowej rozmowie:"
+  },
+  "mirrorSiteWizardStep3": {
+    "message": "Copy the new conversation page URL and paste it into the input below"
+  },
+  "mirrorSiteUrlInputPlaceholder": {
+    "message": "Wklej URL nowej rozmowy"
+  },
+  "mirrorSiteNextButton": {
+    "message": "Next"
+  },
+  "mirrorSiteUrlRequired": {
+    "message": "Please enter URL"
+  },
+  "mirrorSiteUrlInvalid": {
+    "message": "Invalid URL format"
+  },
+  "mirrorSiteAlreadySupported": {
+    "message": "Ta strona jest już dostosowana. Nie trzeba składać ponownego wniosku."
+  },
+  "mirrorSiteDemoInfoIntro": {
+    "message": "Starting from the node that contains \"$1\", 10 ancestor demo levels:"
+  },
+  "mirrorSiteDetectWaitingTitle": {
+    "message": "Wykrywanie wiadomości 「$1」"
+  },
+  "mirrorSiteDetectWaitingDesc": {
+    "message": "Send it in the current conversation to collect automatically"
+  },
+  "mirrorSiteFeedbackSuccessLine1": {
+    "message": "Struktura strony została pomyślnie przeanalizowana! Prześlij adaptację na GitHub."
+  },
+  "mirrorSiteCopyInfo": {
+    "message": "Copy info"
+  },
+  "mirrorSiteGoGithub": {
+    "message": "Prześlij adaptację na GitHub"
+  },
+  "mirrorSiteCopyEmail": {
+    "message": "Copy email"
+  },
+  "mirrorSiteEmailCopied": {
+    "message": "Email copied"
+  },
+  "mirrorSiteIssueTitle": {
+    "message": "[Adaptation Request] $1"
+  },
+  "mirrorSiteDemoErrorDomain": {
+    "message": "Domain"
+  },
+  "mirrorSiteDemoErrorStatusTitle": {
+    "message": "Collection status"
+  },
+  "mirrorSiteDemoErrorDetectedButFailed": {
+    "message": "The test message was detected, but page structure collection failed."
+  },
+  "mirrorSiteDemoErrorMessage": {
+    "message": "Error"
+  },
+  "hideStarredFromListLabel": {
+    "message": "Tryb deduplikacji"
+  },
+  "hideStarredFromListHint": {
+    "message": "Po włączeniu rozmowy dodane do folderów zostaną ukryte z paska bocznego"
+  },
+  "timelineAICompleteNotLatestToast": {
+    "message": "Odpowiedź $1 została zakończona."
+  },
+  "timelineAICompleteToastTitle": {
+    "message": "Przypomnienie o zakończeniu odpowiedzi AI"
+  },
+  "timelineAICompleteToastHint": {
+    "message": "Pokaż przypomnienie w oknie w prawym górnym rogu strony po zakończeniu odpowiedzi AI"
+  },
+  "timelineAICompleteSoundHint": {
+    "message": "Przypomnienie dźwiękowe po zakończeniu odpowiedzi AI"
+  },
+  "preventAutoScrollLabel": {
+    "message": "Zachowaj pozycję czytania przy wysyłaniu"
+  },
+  "preventAutoScrollHint": {
+    "message": "Gdy wysyłasz wiadomość podczas przeglądania wcześniejszej historii, strona pozostaje w bieżącej pozycji czytania zamiast przeskakiwać na dół"
+  },
+  "timelineThemeColorLabel": {
+    "message": "Kolor motywu osi czasu"
+  },
+  "timelineThemeColorHint": {
+    "message": "Ustaw kolor motywu aktywnego znacznika osi czasu dla każdej platformy"
+  },
+  "timelineThemeColorManageButton": {
+    "message": "Ustaw"
+  },
+  "geminiWatermarkTitle": {
+    "message": "Usuwanie znaku wodnego Nano Banana"
+  },
+  "geminiWatermarkHint": {
+    "message": "Pokazuje opcje pobierania z usuwaniem znaku wodnego dla obrazów wygenerowanych przez Gemini, aby pobrać oryginalny obraz lub obraz bez znaku wodnego w prawym dolnym rogu."
+  },
+  "geminiWatermarkDownload": {
+    "message": "Pobierz obraz bez znaku wodnego"
+  },
+  "geminiWatermarkDownloadOriginal": {
+    "message": "Pobierz oryginalny obraz"
+  },
+  "geminiWatermarkErrorGeneric": {
+    "message": "Nie udało się usunąć znaku wodnego"
+  },
+  "geminiWatermarkErrorNoImage": {
+    "message": "Nie znaleziono obrazu do przetworzenia"
+  },
+  "geminiWatermarkErrorTooSmall": {
+    "message": "Obraz jest zbyt mały, aby usunąć znak wodny"
+  },
+  "geminiWatermarkErrorNoWatermark": {
+    "message": "Nie wykryto znaku wodnego Gemini"
+  },
+  "geminiWatermarkErrorUnreadable": {
+    "message": "Nie można odczytać pikseli (ograniczenia przeglądarki). Spróbuj pobrać oryginał"
+  },
+  "languageSettingLabel": {
+    "message": "Język interfejsu"
+  },
+  "languageOptionAuto": {
+    "message": "Użyj języka przeglądarki"
+  },
+  "languageChangeFailed": {
+    "message": "Nie udało się zmienić języka interfejsu"
+  },
+  "timelineAICompleteReminderHint": {
+    "message": "Przypomnienia w oknie i dźwiękowe po zakończeniu odpowiedzi AI."
+  },
+  "timelineAICompleteToastOptionTitle": {
+    "message": "Przypomnienie w oknie"
+  },
+  "timelineAICompleteSoundOptionTitle": {
+    "message": "Przypomnienie dźwiękowe"
+  },
+  "viewChangelogTooltip": {
+    "message": "Zobacz historię zmian"
+  }
+}

@@ -1,0 +1,480 @@
+/**
+ * Panel Modal Styles - 居中弹窗，左右分栏布局
+ * 
+ * 布局结构：
+ * ┌─────────────┬─────────────────────┐
+ * │  [×]        │   标题              │
+ * ├─────────────┼─────────────────────┤
+ * │             │                     │
+ * │  Tabs       │   内容区            │
+ * │  (可滚动)    │   (可滚动)          │
+ * │             │                     │
+ * ├─────────────┤                     │
+ * │  Footer     │                     │
+ * └─────────────┴─────────────────────┘
+ */
+
+/* ========== 主容器 ========== */
+.ait-panel-modal {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 99999 !important;
+    display: none !important;
+    align-items: center !important;
+    justify-content: center !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    float: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    box-sizing: border-box !important;
+    pointer-events: none !important;
+}
+
+.ait-panel-modal.visible {
+    display: flex !important;
+    pointer-events: auto !important;
+}
+
+/* ========== 遮罩层 ========== */
+.ait-panel-modal-overlay {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    background: rgba(0, 0, 0, 0.5) !important;
+    cursor: pointer !important;
+    animation: fadeIn 0.2s ease-out;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    float: none !important;
+}
+
+/* ========== 弹窗容器（居中） ========== */
+.ait-panel-modal-wrapper {
+    position: relative !important;
+    width: 820px !important;
+    max-width: 90vw !important;
+    height: 600px !important;
+    max-height: 80vh !important;
+    background: white !important;
+    border-radius: 12px !important;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
+    display: flex !important;
+    overflow: hidden !important;
+    z-index: 1 !important;
+    animation: modalFadeInScale 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    margin: 0 !important;
+    padding: 0 !important;
+    float: none !important;
+    /* 防止宿主页面 CSS 穿透（text-align 等继承属性） */
+    text-align: left !important;
+    line-height: normal !important;
+    letter-spacing: normal !important;
+    word-spacing: normal !important;
+    text-transform: none !important;
+    text-indent: 0 !important;
+    direction: ltr !important;
+    font-style: normal !important;
+    white-space: normal !important;
+    text-decoration: none !important;
+}
+
+/* ========== 左侧边栏 ========== */
+.ait-panel-modal-sidebar {
+    width: 180px;
+    background: #f6f6f8;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid #e5e5e7;
+}
+
+/* 左侧顶部区域（关闭按钮 + 标题） */
+.ait-panel-modal-sidebar-header {
+    height: 56px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 8px;
+    flex-shrink: 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* 关闭按钮 */
+.ait-panel-modal-close {
+    width: 32px;
+    height: 32px;
+    margin-left: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: #666;
+    border-radius: 8px;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    padding: 0;
+}
+
+.ait-panel-modal-close:hover {
+    background: rgba(0, 0, 0, 0.1);
+    color: #333;
+}
+
+.ait-panel-modal-close:active {
+    transform: scale(0.95);
+}
+
+.ait-panel-modal-close svg {
+    width: 18px;
+    height: 18px;
+    stroke-width: 2.5;
+}
+
+/* 标题 */
+.ait-panel-modal-sidebar-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #24324a;
+    margin-left: -2px;
+    white-space: nowrap;
+    letter-spacing: -0.3px;
+}
+
+/* Tabs 区域（可滚动） */
+.ait-panel-modal-tabs {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 12px 0;
+}
+
+.ait-panel-modal-tabs::-webkit-scrollbar {
+    width: 4px;
+}
+
+.ait-panel-modal-tabs::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 2px;
+}
+
+.ait-panel-modal-tabs::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/* Tab 按钮 */
+.panel-tab {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 12px;
+    margin: 0 12px;
+    width: calc(100% - 24px);
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #666;
+    font-size: 15px;
+    text-align: left;
+}
+
+.panel-tab:hover {
+    background: #0000000a;
+    color: #333;
+}
+
+.panel-tab.active {
+    background: rgba(116, 80, 255, 0.1);
+    color: #7450ff;
+    font-weight: 500;
+}
+
+.panel-tab .tab-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+}
+
+/* SVG 图标样式 */
+.panel-tab .tab-icon svg {
+    width: 20px;
+    height: 20px;
+    color: currentColor;
+    transition: color 0.2s;
+}
+
+.panel-tab .tab-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.panel-tab .tab-badge {
+    display: inline-block;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
+    padding: 2px 4px;
+    border-radius: 4px;
+    color: #fff;
+    background: #e8453c;
+    letter-spacing: 0.3px;
+    margin-left: 4px;
+    vertical-align: middle;
+    transform: scale(0.9);
+}
+
+/* Footer 底部信息区域（左侧底部固定） */
+.ait-panel-modal-footer {
+    padding: 12px 10px 12px 24px;
+    border-top: none;
+    font-size: 11px;
+    color: #888;
+    line-height: 1.6;
+}
+
+.ait-panel-modal-footer-item {
+    display: block;
+    margin-bottom: 4px;
+}
+
+.ait-panel-modal-footer-item:last-child {
+    margin-bottom: 0;
+}
+
+.ait-panel-modal-footer-item svg {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    vertical-align: middle;
+    margin-right: 6px;
+    color: #aaa;
+}
+
+.ait-panel-modal-footer-item span {
+    display: inline;
+    vertical-align: middle;
+}
+
+.ait-panel-modal-footer-link {
+    display: inline;
+    color: #007aff!important;
+    text-decoration: none;
+    white-space: nowrap;
+    font-weight: 500;
+    vertical-align: middle;
+    margin-left: 4px;
+}
+
+.ait-panel-modal-footer-version {
+    display: inline-block;
+    padding: 3px 8px;
+    font-size: 10px;
+    color: #6d28d9;
+    background: linear-gradient(135deg, rgba(109, 40, 217, 0.1) 0%, rgba(76, 29, 149, 0.1) 100%);
+    border-radius: 10px;
+    border: 1px solid rgba(109, 40, 217, 0.2);
+    transition: opacity 0.15s ease;
+}
+
+.ait-panel-modal-footer-version[style*="cursor: pointer"]:hover {
+    opacity: 0.7;
+}
+
+.ait-panel-modal-footer-link:hover {
+    text-decoration: underline;
+}
+
+/* ========== 右侧主区域 ========== */
+.ait-panel-modal-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: white;
+    overflow: hidden;
+}
+
+/* 标题栏（右侧顶部） */
+.ait-panel-modal-header {
+    position: relative;
+    height: 56px;
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    flex-shrink: 0;
+    background: #fafafa;
+}
+
+.ait-panel-modal-header-actions {
+    position: absolute;
+    right: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.ait-panel-modal-language {
+    position: relative;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 7px;
+    border-radius: 8px;
+    color: #6b7280;
+    background: transparent;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.ait-panel-modal-language:hover,
+.ait-panel-modal-language:focus-within {
+    background: rgba(0, 0, 0, 0.06);
+    color: #374151;
+}
+
+.ait-panel-modal-language > svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+.ait-panel-modal-language-value {
+    max-width: 96px;
+    overflow: hidden;
+    font-size: 13px;
+    line-height: 28px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.ait-panel-modal-language > .ait-panel-modal-language-arrow {
+    width: 12px;
+    height: 12px;
+    margin-left: 0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.ait-panel-modal-language-select {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: inherit;
+    outline: none;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.ait-panel-modal-language-select:disabled {
+    cursor: wait;
+    opacity: 0;
+}
+
+.ait-panel-modal-share {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #6b7280;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.ait-panel-modal-share:hover {
+    background: rgba(0, 0, 0, 0.06);
+    color: #374151;
+}
+
+.ait-panel-modal-share:active {
+    transform: scale(0.96);
+}
+
+.ait-panel-modal-share svg {
+    width: 18px;
+    height: 18px;
+}
+
+.ait-panel-modal-title {
+    margin: 0;
+    font-size: 20px;
+    font-weight: 600;
+    color: #333;
+}
+
+/* 内容区（可滚动） */
+.ait-panel-modal-content {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 20px;
+}
+
+.ait-panel-modal-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.ait-panel-modal-content::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+
+.ait-panel-modal-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/* ========== 动画 ========== */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes modalFadeInScale {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}

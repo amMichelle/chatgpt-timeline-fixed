@@ -1,0 +1,652 @@
+/**
+ * Runner Styles - 代码块运行器样式
+ */
+
+/* ===== 颜色变量 - GitHub Dark ===== */
+:root {
+    --runner-bg: #0d1117;
+    --runner-bg-secondary: #161b22;
+    --runner-border: #30363d;
+    --runner-text: #e6edf3;
+    --runner-text-secondary: #8b949e;
+    --runner-accent: #7c3aed;
+    --runner-accent-hover: #6d28d9;
+    --runner-error: #f85149;
+    --runner-warn: #d29922;
+    --runner-info: #58a6ff;
+    --runner-success: #3fb950;
+}
+
+/* ===== 运行按钮（absolute 定位） ===== */
+.runner-code-run-btn {
+    position: absolute !important;
+    top: 60px;
+    right: 10px;
+    /* z-index 由 JS 动态计算 */
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    width: 60px;
+    height: 24px;
+    padding: 0 !important;
+    margin: 0 !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    line-height: 1 !important;
+    color: #ffffff !important;
+    background: var(--runner-accent) !important;
+    background-color: #7c3aed !important;
+    border: none !important;
+    border-radius: 4px !important;
+    cursor: pointer !important;
+    box-shadow: none !important;
+    text-decoration: none !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+    transition: all 0.15s ease !important;
+}
+
+/* Gemini code-block 容器内按钮单独设置偏移 */
+code-block .runner-code-run-btn {
+    top: 80px;
+}
+
+.runner-code-run-btn:hover {
+    background: var(--runner-accent-hover) !important;
+    background-color: #6d28d9 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(124, 58, 237, 0.4) !important;
+}
+
+.runner-code-run-btn:active {
+    transform: translateY(0);
+}
+
+.runner-code-run-btn.loading {
+    opacity: 0.7 !important;
+    pointer-events: none !important;
+    background: var(--runner-text-secondary) !important;
+    background-color: #8b949e !important;
+}
+
+.runner-code-run-btn.loading span::after {
+    content: '...';
+    animation: runner-dots 1s steps(4, end) infinite;
+}
+
+@keyframes runner-dots {
+    0%, 20% { content: ''; }
+    40% { content: '.'; }
+    60% { content: '..'; }
+    80%, 100% { content: '...'; }
+}
+
+.runner-code-run-btn svg {
+    flex-shrink: 0;
+    width: 15px !important;
+    height: 15px !important;
+    fill: currentColor !important;
+    stroke: none !important;
+    display: block !important;
+    pointer-events: none !important;
+}
+
+.runner-code-run-btn span {
+    color: #ffffff !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    line-height: 1 !important;
+    display: inline-block !important;
+}
+
+/* ===== Runner 容器（整体，absolute 定位） ===== */
+.runner-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    /* z-index 由 JS 动态计算 */
+    display: flex;
+    flex-direction: column;
+    background: var(--runner-bg);
+    border-radius: inherit;
+    overflow: hidden;
+}
+
+/* ===== 通用区域头部 ===== */
+.runner-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    /* height 由 JS CONFIG 控制 */
+    padding: 0 12px;
+    background: var(--runner-bg-secondary);
+    border-bottom: 1px solid var(--runner-border);
+}
+
+.runner-section-title {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    gap: 6px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--runner-text-secondary);
+    letter-spacing: 0.5px;
+}
+
+.runner-section-title svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    color: var(--runner-accent);
+    opacity: 0.8;
+}
+
+.runner-section-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* Icon 按钮（设置、复制、弹出、关闭、清空） */
+.runner-action-settings,
+.runner-action-copy,
+.runner-output-copy,
+.runner-action-popout,
+.runner-action-close,
+.runner-action-clear {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    background: transparent;
+    border: 1px solid var(--runner-border);
+    border-radius: 6px;
+    color: var(--runner-text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.runner-action-settings:hover {
+    background: rgba(139, 148, 158, 0.15);
+    border-color: var(--runner-text-secondary);
+    color: var(--runner-text);
+}
+
+.runner-action-copy:hover,
+.runner-output-copy:hover {
+    background: rgba(88, 166, 255, 0.1);
+    border-color: var(--runner-info);
+    color: var(--runner-info);
+}
+
+.runner-action-popout:hover {
+    background: rgba(34, 197, 94, 0.1);
+    border-color: var(--runner-accent);
+    color: var(--runner-accent);
+}
+
+.runner-action-close:hover {
+    background: rgba(248, 81, 73, 0.1);
+    border-color: var(--runner-error);
+    color: var(--runner-error);
+}
+
+.runner-action-clear:hover {
+    background: rgba(210, 153, 34, 0.1);
+    border-color: var(--runner-warn);
+    color: var(--runner-warn);
+}
+
+.runner-action-settings svg,
+.runner-action-copy svg,
+.runner-output-copy svg,
+.runner-action-popout svg,
+.runner-action-close svg,
+.runner-action-clear svg {
+    width: 14px;
+    height: 14px;
+}
+
+/* 语言选择器 */
+.runner-lang-selector {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--runner-text-secondary);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.runner-lang-selector:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--runner-text);
+}
+
+.runner-lang-selector .lang-icon {
+    font-size: 12px;
+}
+
+.runner-lang-selector .lang-name {
+    color: inherit;
+}
+
+.runner-lang-selector svg {
+    width: 10px;
+    height: 10px;
+    opacity: 0.6;
+}
+
+.runner-lang-selector:hover svg {
+    opacity: 1;
+}
+
+/* Run 按钮 */
+.runner-action-run {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    width: 48px;
+    height: 24px;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    color: #fff;
+    background: var(--runner-accent);
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.runner-action-run:hover {
+    background: var(--runner-accent-hover);
+}
+
+.runner-action-run:active {
+    transform: scale(0.97);
+}
+
+.runner-action-run svg {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+}
+
+/* ===== 编辑器区域 ===== */
+.runner-editor-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    /* min-height 由 JS CONFIG 控制 */
+}
+
+/* ===== 分隔条（可拖动） ===== */
+.runner-resizer {
+    height: 1px;
+    background: var(--runner-border);
+    cursor: row-resize;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 10;
+    transition: background-color 0.2s;
+}
+
+/* 增加隐形点击区域 */
+.runner-resizer::before {
+    content: '';
+    position: absolute;
+    top: -4px;
+    bottom: -4px;
+    left: 0;
+    right: 0;
+    background: transparent;
+}
+
+/* Hover 状态：整体变色 */
+.runner-resizer:hover {
+    background: var(--runner-accent);
+}
+
+/* 拖动时的激活状态 */
+.runner-resizer:active {
+    background: var(--runner-accent);
+    height: 2px; /* 微微变粗反馈 */
+}
+
+/* ===== 结果区域 ===== */
+.runner-result-section {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    /* height/min-height/max-height 由 JS CONFIG 控制 */
+}
+
+.runner-result-section .runner-section-header {
+    flex-shrink: 0;
+    border-bottom: none;
+}
+
+.runner-result-content {
+    flex: 1;
+    padding: 12px;
+    overflow-y: auto;
+    /* min-height 由 JS CONFIG 控制 */
+    font-family: ui-monospace, 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--runner-text);
+    background: var(--runner-bg);
+}
+
+/* 加载状态 */
+.runner-result-loading {
+    color: var(--runner-text-secondary);
+}
+
+/* 空输出 */
+.runner-output-empty {
+    color: var(--runner-text-secondary);
+    font-style: italic;
+}
+
+/* 输出行样式 */
+.runner-output-log {
+    padding: 1px 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.runner-output-info {
+    color: var(--runner-info);
+    padding: 1px 0;
+}
+
+.runner-output-warn {
+    color: var(--runner-warn);
+    padding: 4px 8px;
+    background: rgba(210, 153, 34, 0.1);
+    border-left: 2px solid var(--runner-warn);
+    margin: 2px 0;
+}
+
+.runner-output-error {
+    color: var(--runner-error);
+    padding: 4px 8px;
+    background: rgba(248, 81, 73, 0.1);
+    border-left: 2px solid var(--runner-error);
+    margin: 2px 0;
+}
+
+.runner-output-result {
+    color: var(--runner-accent);
+    padding: 1px 0;
+}
+
+/* 特殊值样式 */
+.runner-undefined,
+.runner-null {
+    color: var(--runner-text-secondary);
+    font-style: italic;
+}
+
+/* 结果区滚动条 */
+.runner-result-content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.runner-result-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.runner-result-content::-webkit-scrollbar-thumb {
+    background: var(--runner-border);
+    border-radius: 4px;
+}
+
+.runner-result-content::-webkit-scrollbar-thumb:hover {
+    background: var(--runner-text-secondary);
+}
+
+/* ===== SQL 表格样式 ===== */
+.runner-sql-table-wrapper {
+    margin: 8px 0;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--runner-border);
+    background: var(--runner-bg) !important;
+}
+
+.runner-sql-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    font-family: ui-monospace, 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+    background: var(--runner-bg) !important;
+}
+
+.runner-sql-table th,
+.runner-sql-table td {
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--runner-border);
+    white-space: nowrap;
+    max-width: 250px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--runner-text) !important;
+    background: transparent !important;
+}
+
+.runner-sql-table th {
+    background: #1a2028 !important;
+    font-weight: 600;
+    color: var(--runner-accent) !important;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    position: sticky;
+    top: 0;
+    border-bottom: 2px solid var(--runner-accent);
+}
+
+.runner-sql-table tbody tr {
+    background: var(--runner-bg) !important;
+    transition: background 0.15s ease;
+}
+
+.runner-sql-table tbody tr:nth-child(even) {
+    background: var(--runner-bg-secondary) !important;
+}
+
+.runner-sql-table tbody tr:hover {
+    background: rgba(34, 197, 94, 0.15) !important;
+}
+
+.runner-sql-table td .runner-null {
+    color: var(--runner-text-secondary) !important;
+    font-style: italic;
+}
+
+.runner-sql-table-info {
+    margin-top: 8px;
+    padding: 6px 12px;
+    font-size: 11px;
+    color: var(--runner-text-secondary);
+    text-align: right;
+    background: var(--runner-bg-secondary);
+    border-radius: 4px;
+}
+
+/* ===== HTML 预览样式 ===== */
+.runner-html-preview {
+    margin: 8px 0;
+}
+
+.runner-html-preview iframe {
+    display: block;
+    width: 100% !important;
+    min-height: 150px;
+    max-height: 400px;
+    resize: vertical;
+    overflow: auto;
+}
+
+/* ===== JSON 格式化样式 ===== */
+.runner-json-output {
+    margin: 8px 0;
+    padding: 12px;
+    background: var(--runner-bg) !important;
+    border: 1px solid var(--runner-border);
+    border-radius: 6px;
+    font-family: ui-monospace, 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    overflow-x: auto;
+    white-space: pre;
+    color: var(--runner-text) !important;
+}
+
+.runner-json-key {
+    color: #7dd3fc !important;
+}
+
+.runner-json-string {
+    color: #86efac !important;
+}
+
+.runner-json-number {
+    color: #fbbf24 !important;
+}
+
+.runner-json-boolean {
+    color: #f472b6 !important;
+}
+
+.runner-json-null {
+    color: var(--runner-text-secondary) !important;
+    font-style: italic;
+}
+
+/* ===== Markdown 预览样式 ===== */
+.runner-markdown-preview {
+    margin: 8px 0;
+    padding: 16px;
+    background: var(--runner-bg-secondary) !important;
+    border: 1px solid var(--runner-border);
+    border-radius: 6px;
+    color: var(--runner-text) !important;
+    font-size: 14px;
+    line-height: 1.6;
+    overflow-x: auto;
+}
+
+.runner-markdown-preview h1,
+.runner-markdown-preview h2,
+.runner-markdown-preview h3,
+.runner-markdown-preview h4,
+.runner-markdown-preview h5,
+.runner-markdown-preview h6 {
+    color: var(--runner-text) !important;
+    margin-top: 16px;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+.runner-markdown-preview h1 { font-size: 1.5em; border-bottom: 1px solid var(--runner-border); padding-bottom: 8px; }
+.runner-markdown-preview h2 { font-size: 1.3em; border-bottom: 1px solid var(--runner-border); padding-bottom: 6px; }
+.runner-markdown-preview h3 { font-size: 1.1em; }
+
+.runner-markdown-preview p {
+    margin: 12px 0;
+}
+
+.runner-markdown-preview code {
+    background: rgba(0,0,0,0.3) !important;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: ui-monospace, 'SF Mono', 'Monaco', 'Menlo', 'Consolas', monospace;
+    font-size: 0.9em;
+    color: #f472b6 !important;
+}
+
+.runner-markdown-preview pre {
+    background: var(--runner-bg) !important;
+    padding: 12px;
+    border-radius: 6px;
+    overflow-x: auto;
+    margin: 12px 0;
+}
+
+.runner-markdown-preview pre code {
+    background: transparent !important;
+    padding: 0;
+    color: var(--runner-text) !important;
+}
+
+.runner-markdown-preview blockquote {
+    border-left: 4px solid var(--runner-accent);
+    margin: 12px 0;
+    padding: 8px 16px;
+    background: rgba(34, 197, 94, 0.1);
+    color: var(--runner-text-secondary) !important;
+}
+
+.runner-markdown-preview ul,
+.runner-markdown-preview ol {
+    margin: 12px 0;
+    padding-left: 24px;
+}
+
+.runner-markdown-preview li {
+    margin: 4px 0;
+}
+
+.runner-markdown-preview a {
+    color: var(--runner-info) !important;
+    text-decoration: none;
+}
+
+.runner-markdown-preview a:hover {
+    text-decoration: underline;
+}
+
+.runner-markdown-preview table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0;
+}
+
+.runner-markdown-preview th,
+.runner-markdown-preview td {
+    padding: 8px 12px;
+    border: 1px solid var(--runner-border);
+    text-align: left;
+}
+
+.runner-markdown-preview th {
+    background: var(--runner-bg) !important;
+    font-weight: 600;
+}
+
+.runner-markdown-preview hr {
+    border: none;
+    border-top: 1px solid var(--runner-border);
+    margin: 16px 0;
+}

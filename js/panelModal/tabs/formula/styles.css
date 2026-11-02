@@ -1,0 +1,196 @@
+/**
+ * Formula Tab Styles
+ * 复制 LaTeX 公式设置样式
+ */
+
+/* 设置容器 */
+.formula-settings {
+    padding: 0;
+    overflow-y: auto;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+/* 设置区块 */
+.formula-settings .setting-section {
+    margin-bottom: 12px;
+    background: #f9fafb;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.formula-settings .setting-section:last-child {
+    margin-bottom: 0;
+}
+
+/* 设置项 */
+.setting-item {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px;
+    transition: background 0.2s;
+}
+
+.setting-item:hover {
+    background: #f3f4f6;
+}
+
+/* 设置信息 */
+.setting-info {
+    flex: 1;
+}
+
+.setting-label {
+    font-size: 15px;
+    font-weight: 500;
+    color: #1f2937;
+    margin-bottom: 6px;
+}
+
+.setting-hint {
+    font-size: 13px;
+    color: #6b7280;
+    line-height: 1.6;
+}
+
+/* Toggle Switch */
+.ait-toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 48px;
+    height: 26px;
+    flex-shrink: 0;
+}
+
+.ait-toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.ait-toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #d1d5db;
+    border-radius: 26px;
+    transition: background-color 0.3s;
+}
+
+.ait-toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    border-radius: 50%;
+    transition: transform 0.3s;
+}
+
+.ait-toggle-switch input:checked + .ait-toggle-slider {
+    background-color: #000000;
+}
+
+.ait-toggle-switch input:checked + .ait-toggle-slider:before {
+    transform: translateX(22px);
+}
+
+.ait-toggle-switch input:focus + .ait-toggle-slider {
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.1);
+}
+
+/* ==================== 格式选择区域（内联在 setting-info 中） ==================== */
+
+.format-inline {
+    margin-top: 12px;
+}
+
+.format-inline-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 8px;
+}
+
+.format-options {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* 单选按钮选项 */
+.format-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.format-option:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+}
+
+.format-option:has(input:checked) {
+    background: #f3f4f6;
+    border-color: #000000;
+}
+
+/* 隐藏原生 radio */
+.format-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+/* 自定义 radio 样式 */
+.format-radio {
+    position: relative;
+    width: 18px;
+    height: 18px;
+    border: 2px solid #d1d5db;
+    border-radius: 50%;
+    flex-shrink: 0;
+    transition: all 0.2s;
+}
+
+.format-option:has(input:checked) .format-radio {
+    border-color: #000000;
+}
+
+.format-radio::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    width: 10px;
+    height: 10px;
+    background: #000000;
+    border-radius: 50%;
+    transition: transform 0.2s;
+}
+
+.format-option:has(input:checked) .format-radio::after {
+    transform: translate(-50%, -50%) scale(1);
+}
+
+/* 格式标签 */
+.format-label {
+    font-size: 14px;
+    color: #374151;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}

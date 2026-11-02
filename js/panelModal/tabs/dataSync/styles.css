@@ -1,0 +1,270 @@
+/**
+ * DataSync Tab Styles
+ * 数据导入导出样式
+ */
+
+/* 容器 */
+.data-sync-tab {
+    padding: 0;
+    overflow-y: auto;
+    height: 100%;
+    box-sizing: border-box;
+}
+
+/* 区块 */
+.sync-section {
+    padding: 16px;
+    background: #f9fafb;
+    border-radius: 8px;
+    margin-bottom: 16px;
+}
+
+.sync-section:last-of-type {
+    margin-bottom: 0;
+}
+
+/* 标题 */
+.sync-title {
+    font-size: 15px;
+    font-weight: 500;
+    color: #1f2937;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+}
+
+/* 提示文字 */
+.sync-hint {
+    font-size: 13px;
+    color: #6b7280;
+    line-height: 1.6;
+    margin-bottom: 16px;
+}
+
+/* 分隔线 */
+.sync-divider {
+    height: 1px;
+    background: #e5e7eb;
+    margin: 0 0 16px 0;
+}
+
+/* 按钮 */
+.sync-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: #000000;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.sync-btn:hover {
+    background: #1f2937;
+}
+
+.sync-btn:active {
+    transform: scale(0.98);
+}
+
+.sync-btn svg {
+    width: 18px;
+    height: 18px;
+}
+
+/* 本地备份分组 */
+.local-sync-group {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.local-sync-item {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+}
+
+.local-sync-label {
+    font-size: 13px;
+    font-weight: 500;
+    color: #6b7280;
+    width: 36px;
+    flex-shrink: 0;
+    padding-top: 10px;
+}
+
+.local-sync-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.local-sync-body .sync-btn {
+    width: 100%;
+    justify-content: center;
+}
+
+.local-sync-body .import-options {
+    margin-bottom: 10px;
+}
+
+/* 导入选项 */
+.import-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.import-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.import-option:hover {
+    background: #f3f4f6;
+    border-color: #d1d5db;
+}
+
+.import-option:has(input:checked) {
+    background: #f3f4f6;
+    border-color: #000000;
+}
+
+/* 隐藏原生 radio */
+.import-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+/* 自定义 radio 样式 */
+.option-radio {
+    position: relative;
+    width: 18px;
+    height: 18px;
+    border: 2px solid #d1d5db;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 2px;
+    transition: all 0.2s;
+}
+
+.import-option:has(input:checked) .option-radio {
+    border-color: #000000;
+}
+
+.option-radio::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    width: 10px;
+    height: 10px;
+    background: #000000;
+    border-radius: 50%;
+    transition: transform 0.2s;
+}
+
+.import-option:has(input:checked) .option-radio::after {
+    transform: translate(-50%, -50%) scale(1);
+}
+
+/* 选项内容 */
+.option-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.option-label {
+    font-size: 14px;
+    font-weight: 500;
+    color: #1f2937;
+}
+
+.option-desc {
+    font-size: 12px;
+    color: #6b7280;
+    line-height: 1.4;
+}
+
+/* ============================================
+   Google Drive 云同步样式
+   ============================================ */
+
+/* 操作按钮组 */
+.gdrive-actions {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.gdrive-actions .sync-btn {
+    flex: 1;
+    justify-content: center;
+    font-size: 13px;
+    padding: 9px 14px;
+}
+
+.gdrive-download-btn {
+    background: #ffffff !important;
+    color: #1f2937 !important;
+    border: 1px solid #d1d5db !important;
+}
+
+.gdrive-download-btn:hover {
+    background: #f3f4f6 !important;
+    border-color: #9ca3af !important;
+}
+
+/* 提示文字 */
+.gdrive-hint {
+    font-size: 11px;
+    color: #9ca3af;
+    text-align: center;
+}
+
+/* 按钮禁用状态 */
+.sync-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* 状态消息 */
+.sync-status {
+    margin-top: 16px;
+    padding: 12px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    text-align: center;
+}
+
+.sync-status.loading {
+    background: #f3f4f6;
+    color: #374151;
+}
+
+.sync-status.success {
+    background: #d1fae5;
+    color: #065f46;
+}
+
+.sync-status.error {
+    background: #fee2e2;
+    color: #991b1b;
+}

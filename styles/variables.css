@@ -1,0 +1,132 @@
+/*
+  chat Timeline Stylesheet
+  This CSS is designed to be resilient and adapt to chat's light/dark themes.
+*/
+
+/* Use CSS variables for easy theme management. We sample chat's own colors. */
+:root {
+    --ait-timeline-dot-color: #D1D5DB; /* Light mode gray */
+    --ait-timeline-dot-active-color: #6128FF; /* 紫色 rgb(97, 40, 255) */
+    --timeline-star-color: #FF7D03; /* 收藏橙色 rgb(255, 125, 3) */
+
+    /* Tooltip tokens (light) */
+    --timeline-tooltip-bg: #f8fafc;
+    --timeline-tooltip-text: #334155;
+    --timeline-tooltip-border: #e2e8f0;
+    --timeline-tooltip-radius: 12px;
+    --timeline-tooltip-shadow: 0 4px 14px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.06);
+    /* geometry */
+    --timeline-tooltip-lh: 18px;
+    --timeline-tooltip-pad-y: 10px;
+    --timeline-tooltip-pad-x: 12px;
+    --timeline-tooltip-border-w: 1px;
+    --timeline-tooltip-arrow-size: 12px; /* ✅ 需求1：箭头放大 1.5 倍 (8px → 12px) */
+    --timeline-tooltip-arrow-outside: 6px; /* ✅ 需求1：同步调整突出距离 (4px → 6px) */
+    --timeline-tooltip-anim-in: 120ms cubic-bezier(0, 0, 0.2, 1);
+    --timeline-tooltip-anim-out: 100ms linear;
+
+    /* 浅色模式：略深于页面底色（白/#f9f9f9），配合 timeline.css 的 1px 内描边与页面区分 */
+    --timeline-bar-bg: rgba(240, 241, 245, 0.9);
+    --timeline-bar-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+    --ait-timeline-dot-size: 14px;
+    --timeline-star-size: 17px; /* 五角星盒子尺寸（增加1px） */
+    --timeline-active-ring: 3px;
+    --timeline-star-ring: 5px; /* 五角星边框环宽度（增加1px，使边框更明显） */
+    --ait-timeline-track-padding: 16px;
+    --timeline-tooltip-max: 288px;
+    --timeline-min-gap: 25px;
+    /* enlarged hit area for easier clicking */
+    --timeline-hit-size: 30px;
+    /* spacing model */
+    --timeline-tooltip-gap-visual: 4px;   /* ✅ 需求1：减少间距，让 tooltip 靠近圆点 (8px → 4px) */
+    --timeline-tooltip-gap-box: 2px;      /* ✅ 需求1：同步减少 box gap (4px → 2px) */
+    /* ✅ 移除：--timeline-hold-ms 已删除，长按功能已移除 */
+    
+    /* ✅ 紧凑模式（横线样式）变量 */
+    --timeline-compact-gap: 28px;                   /* 紧凑模式默认间距 */
+    --timeline-compact-line-width: 18px;       /* 横线默认宽度 */
+    --timeline-compact-line-hover-width: 24px; /* hover 节点宽度 */
+    --timeline-compact-line-height: 2px;       /* 横线高度 */
+    
+    /* ✅ 追问按钮变量 */
+    --ait-quick-ask-bg: #1a1a1a;
+    --ait-quick-ask-hover: #333;
+    --ait-quick-ask-active: #444;
+    --ait-quick-ask-text: #fff;
+    --ait-quick-ask-shadow: rgba(0, 0, 0, 0.2);
+    --ait-quick-ask-divider: rgba(255, 255, 255, 0.15);
+}
+
+/*
+ * 防止 Ctrl+A 全选时选中插件注入的 UI 文本
+ * 根因：插件向宿主页面 DOM 注入了多个 UI 元素，若不设置 user-select: none，
+ *       用户全选复制时会将插件 UI 中的文案（按钮文字、placeholder、提示语等）一起复制。
+ * 新增注入到页面的根级 UI 组件时，需要将其选择器加入此列表。
+ * ref: https://github.com/houyanchao/chatgpt-gemini-timeline/issues/72
+ */
+.ait-chat-timeline-wrapper,
+.timeline-toggle-btn,
+.timeline-tooltip,
+.timeline-tooltip-base,
+.timeline-tooltip-overlay,
+.timeline-copy-feedback,
+.timeline-error-toast,
+.ait-global-toast,
+.ait-panel-modal,
+.ait-notepad-panel,
+.ait-sidebar-starred,
+.ait-question-list-popup,
+.ait-quick-ask-btn,
+.ait-highlight-standalone-btn,
+.ait-hl-popover,
+.ait-mermaid-overlay,
+.ait-cw-float,
+.ait-scroll-to-bottom-btn,
+.ait-custom-drag-ghost,
+.floating-runner-container,
+.mirror-site-float-btn,
+.smart-input-prompt-btn,
+.smart-input-update-btn,
+.global-dropdown,
+.global-dropdown-overlay,
+.global-input-modal-overlay,
+.global-popconfirm-overlay,
+.changelog-modal-overlay,
+.folder-edit-modal-overlay,
+.ce-export-overlay,
+.star-input-modal-overlay,
+.starred-platform-modal-overlay,
+.prompt-modal-overlay,
+.prompt-dropdown-overlay,
+.prompt-dropdown-container,
+.ait-ant-parade,
+.ait-snail-parade,
+.ait-wizard-parade,
+.ait-zombie-parade {
+    user-select: none;
+}
+
+/* Override variables when chat's dark mode is active */
+html[data-timeline-theme="dark"] {
+    --ait-timeline-dot-color: #A0A0A0; /* ✅✅ 进一步提升亮度：#888 → #A0A0A0，深色主题下更清晰 */
+    --ait-timeline-dot-active-color: #8B5CF6; /* ✅✅ 更明亮的紫色：#7C3AED → #8B5CF6 (violet-500)，对比度更强 */
+    --timeline-star-color: #FB923C; /* 橙色保持不变，已经很好 */
+    --timeline-active-ring: 4px; /* ✅✅ 加粗激活环：3px → 4px，深色主题下更醒目 */
+    /* Dark tooltip palette */
+    --timeline-tooltip-bg: #27272a;
+    --timeline-tooltip-text: #e5e7eb;
+    --timeline-tooltip-border: #3f3f46;
+    --timeline-bar-bg: rgba(45, 45, 48, 0.95); /* ✅✅ 更高不透明度：0.92 → 0.95，背景更扎实 */
+    /* 深色模式：微妙边框和光晕，增强立体感 */
+    --timeline-bar-shadow: 0 2px 16px rgba(0, 0, 0, 0.4),
+                           0 0 1px rgba(255, 255, 255, 0.1),
+                           inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+    
+    /* ✅ 追问按钮 - 深色主题 */
+    --ait-quick-ask-bg: #f5f5f5;
+    --ait-quick-ask-hover: #e5e5e5;
+    --ait-quick-ask-active: #d4d4d4;
+    --ait-quick-ask-text: #1a1a1a;
+    --ait-quick-ask-shadow: rgba(0, 0, 0, 0.3);
+    --ait-quick-ask-divider: rgba(0, 0, 0, 0.12);
+}

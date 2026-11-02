@@ -1,0 +1,128 @@
+/* =============================================
+ * MermaidRenderer - 全屏查看器 + Runner 输出预览样式
+ *
+ * 主题色对齐 Runner 紫色系：#7c3aed / #6d28d9
+ * ============================================= */
+
+/* === Runner 输出面板中的 Mermaid 图表预览 === */
+.runner-mermaid-preview {
+    margin: 8px 0;
+    padding: 16px;
+    background: #ffffff !important;
+    border: 1px solid var(--runner-border, #30363d);
+    border-radius: 6px;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    overflow: auto;
+    min-height: 80px;
+    max-height: 500px;
+    cursor: pointer;
+}
+
+.runner-mermaid-preview:hover {
+    border-color: rgba(124, 58, 237, 0.4);
+}
+
+.runner-mermaid-preview svg {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    flex-shrink: 0;
+}
+
+/* =============================================
+ * 全屏查看器
+ * ============================================= */
+
+.ait-mermaid-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 999999;
+    background: rgba(10, 10, 15, 0.92);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.25s ease;
+    cursor: grab;
+}
+
+.ait-mermaid-overlay.visible {
+    opacity: 1;
+}
+
+.ait-mermaid-overlay.panning {
+    cursor: grabbing;
+}
+
+/* 图表画布 */
+.ait-mermaid-canvas {
+    transform-origin: center center;
+    transition: transform 0.08s ease-out;
+    pointer-events: none;
+    background: #ffffff;
+    border-radius: 8px;
+    padding: 16px;
+}
+
+.ait-mermaid-canvas svg {
+    max-width: 85vw;
+    max-height: 85vh;
+    display: block;
+}
+
+/* 控制按钮组 */
+.ait-mermaid-controls {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    gap: 8px;
+    z-index: 1000000;
+}
+
+.ait-mc-btn {
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(124, 58, 237, 0.25);
+    color: #fff;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background 0.15s;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    line-height: 1;
+    padding: 0;
+    font-family: inherit;
+}
+
+.ait-mc-btn:hover {
+    background: rgba(124, 58, 237, 0.5);
+}
+
+.ait-mc-close {
+    background: rgba(220, 53, 69, 0.6);
+}
+
+.ait-mc-close:hover {
+    background: rgba(220, 53, 69, 0.85);
+}
+
+/* 底部提示 */
+.ait-mermaid-hint {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 12px;
+    pointer-events: none;
+    white-space: nowrap;
+    user-select: none;
+}

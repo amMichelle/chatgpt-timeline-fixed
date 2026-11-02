@@ -1,0 +1,59 @@
+/**
+ * Quick Ask Button Styles
+ * 引用回复按钮样式
+ */
+
+/* 外层容器 */
+.ait-quick-ask-btn {
+    position: absolute;
+    z-index: 10000;
+    
+    display: flex;
+    align-items: stretch;
+    
+    background: var(--ait-quick-ask-bg, #1a1a1a);
+    border-radius: 6px;
+    overflow: hidden;
+    
+    opacity: 0;
+    transform: translateY(4px);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    
+    box-shadow: 0 2px 8px var(--ait-quick-ask-shadow, rgba(0, 0, 0, 0.2));
+}
+
+.ait-quick-ask-btn.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* 追问按钮 */
+.ait-quick-ask-action {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    
+    background: none;
+    color: var(--ait-quick-ask-text, #fff);
+    border: none;
+    border-radius: 0;
+    
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.ait-quick-ask-action:hover {
+    background: var(--ait-quick-ask-hover, #333);
+}
+
+.ait-quick-ask-action:active {
+    background: var(--ait-quick-ask-active, #444);
+}
+
+.ait-quick-ask-action svg {
+    flex-shrink: 0;
+}

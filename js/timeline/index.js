@@ -1,0 +1,414 @@
+/**
+ * Main Entry Point
+ * 
+ * Initializes the timeline extension and manages SPA navigation
+ * 
+ * Features:
+ * - Site detection and adapter loading
+ * - History API hooks for better SPA support
+ * - Route change detection
+ * - Timeline lifecycle management
+ */
+
+// --- Entry Point and SPA Navigation Handler ---
+let timelineManagerInstance = null;
+let currentUrl = location.href;
+let initVersion = 0; // Version number for initialization, increments on URL change
+let unsubscribePageObserver = null;  // DOMObserverManager 取消订阅函数
+let routeListenersAttached = false;
+let settingsListenerAttached = false;
+let adapterRegistry = new SiteAdapterRegistry();
+let currentAdapter = null;
+let timelineInitInFlight = null;
+let timelineInitInFlightVersion = null;
+let capturedInitListenerAttached = false;
+let capturedInitTimer = null;
+
+// Check if current route is a conversation page (uses adapter)
+async function resolveCurrentAdapter() {
+    if (!currentAdapter) {
+        currentAdapter = await adapterRegistry.detectAdapter();
+    }
+    return currentAdapter;
+}
+
+async function isConversationRoute(pathname = location.pathname) {
+    const currentAdapter = await resolveCurrentAdapter();
+    return currentAdapter ? currentAdapter.isConversationRoute(pathname) : false;
+}
+
+// Helper function: sleep for specified milliseconds
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function getInitializationState(adapter) {
+    if (typeof adapter?.getTimelineInitializationState === 'function') {
+        return adapter.getTimelineInitializationState();
+    }
+    const selector = adapter?.getUserMessageSelector?.() || '';
+    const anchor = selector ? document.querySelector(selector) : null;
+    return { selector, userDom: !!anchor, apiIndex: false, anchor, ready: !!anchor, reason: anchor ? 'user-dom' : 'none' };
+}
+
+// Helper function: check if current platform is enabled
+async function isPlatformEnabled() {
+    try {
+        const platform = await getCurrentPlatform();
+        window.AITGPTDiagnostics?.log('timeline.platform', { detected: !!platform, supported: platform?.features?.timeline === true });
+        if (!platform) return true; // 未知平台，默认启用
+        
+        // ✅ 首先检查平台是否支持时间轴功能
+        if (platform.features?.timeline !== true) {
+            return false; // 平台不支持该功能
+        }
+        
+        const result = await chrome.storage.local.get('timelinePlatformSettings');
+        const settings = result.timelinePlatformSettings || {};
+        
+        // 默认启用（!== false）
+        window.AITGPTDiagnostics?.log('timeline.platform-setting', { enabled: settings[platform.id] !== false });
+        return settings[platform.id] !== false;
+    } catch (e) {
+        window.AITGPTDiagnostics?.error("timeline.platform-check", e);
+        return true; // 出错默认启用
+    }
+}
+
+// Helper function: lightweight check if timeline can be initialized
+async function canInitialize() {
+    const adapter = await resolveCurrentAdapter();
+    if (!adapter) { window.AITGPTDiagnostics?.log("timeline.no-adapter"); return false; }
+
+    adapter.syncCapturedChatsData?.();
+    adapter.prepareTimelineNodes?.({
+        force: true,
+        reason: 'initialization-check'
+    });
+    const state = getInitializationState(adapter);
+    const found = state.ready === true;
+    window.AITGPTDiagnostics?.log('timeline.init-stage', {
+        stage: 'can-initialize', found,
+        reason: state.reason || 'none',
+        adapter: adapter.platformId || 'unknown'
+    });
+    return found;
+}
+
+function setupCapturedDataInitListener() {
+    if (capturedInitListenerAttached) return;
+    capturedInitListenerAttached = true;
+    document.addEventListener('ait-gpt-user-texts-updated', event => {
+        if (timelineManagerInstance || capturedInitTimer) return;
+        const conversationId = typeof event.detail === 'string' ? event.detail : '';
+        capturedInitTimer = setTimeout(() => {
+            capturedInitTimer = null;
+            void (async () => {
+                const adapter = await resolveCurrentAdapter();
+                if (!adapter || !(await isConversationRoute())) return;
+                adapter.handleCapturedChatsDataUpdated?.(conversationId);
+                adapter.prepareTimelineNodes?.({ force: true, reason: 'capture-before-manager' });
+                if (!(await isPlatformEnabled())) return;
+                initVersion++;
+                const version = initVersion;
+                window.AITGPTDiagnostics?.log('timeline.init-stage', {
+                    stage: 'capture-triggered-init', adapter: adapter.platformId || 'unknown', apiData: adapter.hasTimelineData?.() === true
+                });
+                await initWithRetry(version, TIMELINE_CONFIG.INIT_RETRY_DELAYS);
+            })().catch(error => window.AITGPTDiagnostics?.error('timeline.capture-init', error));
+        }, 50);
+    });
+}
+
+// Initialize timeline with retry mechanism (exponential backoff)
+async function initWithRetry(version, delays, retryIndex = 0) {
+    // Check if we've exceeded max retries
+    window.AITGPTDiagnostics?.log("timeline.retry", { retryIndex, version });
+    if (retryIndex >= delays.length) {
+        window.AITGPTDiagnostics?.log("timeline.retries-exhausted");
+        return;
+    }
+    
+    // Wait for the specified delay
+    await sleep(delays[retryIndex]);
+    
+    // Check if version is still current (user may have navigated away)
+    if (version !== initVersion) {
+        return; // Version mismatch, cancel this retry
+    }
+    
+    // Double-check we're still on a conversation route
+    if (!(await isConversationRoute())) {
+        window.AITGPTDiagnostics?.log("timeline.retry-stopped", { reason: "not-conversation-route" });
+        return;
+    }
+    
+    // ✅ 检查当前平台是否启用时间轴功能
+    const platformEnabled = await isPlatformEnabled();
+    if (!platformEnabled) {
+        return; // 当前平台未启用，不初始化
+    }
+    
+    // Lightweight check: can we initialize?
+    if (await canInitialize()) {
+        // Yes! Initialize the timeline
+        const initialized = await initializeTimeline(version);
+        if (initialized) return;
+    }
+    
+    // No, retry with next delay
+    await initWithRetry(version, delays, retryIndex + 1);
+}
+
+function attachRouteListenersOnce() {
+    if (routeListenersAttached) return;
+    routeListenersAttached = true;
+
+    TimelineUtils.removeEventListenerSafe(window, 'url:change', handleUrlChange);
+    try { window.addEventListener('url:change', handleUrlChange); } catch {}
+}
+
+function detachRouteListeners() {
+    if (!routeListenersAttached) return;
+    routeListenersAttached = false;
+
+    TimelineUtils.removeEventListenerSafe(window, 'url:change', handleUrlChange);
+}
+
+function cleanupGlobalObservers() {
+    // 取消 DOMObserverManager 订阅
+    if (unsubscribePageObserver) {
+        unsubscribePageObserver();
+        unsubscribePageObserver = null;
+    }
+}
+
+function destroyTimelineInstance() {
+    if (timelineManagerInstance) {
+        try { timelineManagerInstance.destroy(); } catch (e) { void 0; }
+        timelineManagerInstance = null;
+    }
+
+    if (window.AIStateMonitor) {
+        window.AIStateMonitor.getInstance().stop();
+    }
+
+    TimelineUtils.removeElementSafe(document.querySelector('.ait-chat-timeline-wrapper'));
+    TimelineUtils.removeElementSafe(document.querySelector('.ait-timeline-star-chat-btn-native'));
+    window.AITChatHeaderActions?.removeEmptyContainer?.();
+    cleanupGlobalObservers();
+}
+
+async function initializeTimeline(version = initVersion) {
+    if (timelineInitInFlight) {
+        if (timelineInitInFlightVersion === version) {
+            return timelineInitInFlight;
+        }
+    }
+
+    timelineInitInFlightVersion = version;
+    timelineInitInFlight = (async () => {
+        // Detect current site adapter
+        const adapter = await resolveCurrentAdapter();
+        if (!adapter || version !== initVersion) {
+            return false;
+        }
+
+        destroyTimelineInstance();
+
+        const manager = new TimelineManager(adapter);
+        timelineManagerInstance = manager;
+        window.AITGPTDiagnostics?.log('timeline.init-stage', { stage: 'manager-created', adapter: adapter.platformId || 'unknown' });
+
+        try {
+            const initialized = await manager.init();
+            window.AITGPTDiagnostics?.log('timeline.manager-result', { initialized: !!initialized, stale: version !== initVersion });
+            if (!initialized || version !== initVersion || timelineManagerInstance !== manager) {
+                try { manager.destroy(); } catch {}
+                if (timelineManagerInstance === manager) {
+                    timelineManagerInstance = null;
+                }
+                return false;
+            }
+        } catch (err) {
+            window.AITGPTDiagnostics?.error("timeline.manager-init", err);
+            if (timelineManagerInstance === manager) {
+                timelineManagerInstance = null;
+            }
+            try { manager.destroy(); } catch {}
+            return false;
+        }
+
+        // ✅ 启动 AI 状态监控（事件驱动，替代各模块的 setInterval 轮询）
+        if (window.AIStateMonitor) {
+            window.AIStateMonitor.getInstance().start(adapter);
+        }
+        return true;
+    })().finally(() => {
+        if (timelineInitInFlightVersion === version) {
+            timelineInitInFlight = null;
+            timelineInitInFlightVersion = null;
+        }
+    });
+
+    return timelineInitInFlight;
+}
+
+async function handleUrlChange() {
+    // 检测 URL 是否变化
+    if (location.href === currentUrl) return;
+
+    // URL 变化确认，立即隐藏提问列表
+    if (window.questionListPopup && window.questionListPopup.visible) {
+        window.questionListPopup.hide();
+    }
+
+    currentUrl = location.href;
+    initVersion++;
+    currentAdapter = null;
+    currentAdapter = await adapterRegistry.detectAdapter();
+
+    // URL 变化了，先清理旧时间轴实例（内部会销毁 ChatTimeRecorder）
+    destroyTimelineInstance();
+
+    // 如果当前是对话 URL，重新初始化
+    if (await isConversationRoute()) {
+        const currentVersion = initVersion;
+        void initWithRetry(currentVersion, TIMELINE_CONFIG.INIT_RETRY_DELAYS)
+            .catch(e => window.AITGPTDiagnostics?.error("timeline.async", e));
+    }
+    // 如果不是对话 URL，只清理（上面已经做了）
+}
+
+// ✅ 监听平台设置变化，动态启用/禁用时间轴
+function setupPlatformSettingsListener() {
+    if (settingsListenerAttached) return;
+    settingsListenerAttached = true;
+
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+        if (areaName !== 'local') return;
+
+        // 监听平台设置变化
+        if (changes.timelinePlatformSettings) {
+            void (async () => {
+                const platform = await getCurrentPlatform();
+                if (!platform) return;
+
+                // ✅ 检查平台是否支持时间轴功能
+                if (platform.features?.timeline !== true) {
+                    return; // 平台不支持该功能，忽略
+                }
+
+                const oldSettings = changes.timelinePlatformSettings.oldValue || {};
+                const newSettings = changes.timelinePlatformSettings.newValue || {};
+
+                const wasEnabled = oldSettings[platform.id] !== false;
+                const isEnabled = newSettings[platform.id] !== false;
+
+                // 状态发生变化
+                if (wasEnabled !== isEnabled) {
+                    if (isEnabled) {
+                        // 从禁用到启用：重新初始化时间轴
+                        if (!timelineManagerInstance && await isConversationRoute()) {
+                            initVersion++;
+                            const currentVersion = initVersion;
+                            void initWithRetry(currentVersion, TIMELINE_CONFIG.INIT_RETRY_DELAYS)
+                                .catch(e => window.AITGPTDiagnostics?.error("timeline.async", e));
+                        }
+                    } else {
+                        // 从启用到禁用：销毁时间轴
+                        destroyTimelineInstance();
+                    }
+                }
+            })().catch(e => window.AITGPTDiagnostics?.error("timeline.async", e));
+        }
+    });
+}
+
+async function bootstrapTimeline() {
+    window.AITGPTDiagnostics?.log('timeline.bootstrap-start');
+    await TimelineI18n.ready();
+    window.AITGPTDiagnostics?.log('timeline.i18n-ready');
+    await adapterRegistry.loadCustomAdapters();
+    window.AITGPTDiagnostics?.log('timeline.registry-ready');
+
+    // Check if current site is supported before initializing
+    if (!(await adapterRegistry.isSupportedSite())) {
+        window.AITGPTDiagnostics?.log("timeline.unsupported-site");
+        return;
+    }
+
+    setupPlatformSettingsListener();
+    setupCapturedDataInitListener();
+    currentAdapter = await adapterRegistry.detectAdapter();
+    window.AITGPTDiagnostics?.log('timeline.init-stage', {
+        stage: 'adapter-detected', adapter: currentAdapter?.platformId || 'none',
+        conversationRoute: !!currentAdapter && currentAdapter.isConversationRoute(location.pathname)
+    });
+    
+    // ✅ 修复：先检查DOM中是否已存在用户消息（SPA路由切换场景）
+    const checkAndInit = async () => {
+        const adapter = await resolveCurrentAdapter();
+        adapter?.syncCapturedChatsData?.();
+        adapter?.prepareTimelineNodes?.({
+            force: true,
+            reason: 'bootstrap-check'
+        });
+        const state = getInitializationState(adapter);
+        const selector = state.selector || null;
+        const matches = selector ? document.querySelectorAll(selector).length : 0;
+        const apiData = state.apiIndex === true;
+        const anchor = state.anchor || null;
+        window.AITGPTDiagnostics?.log('timeline.init-stage', {
+            stage: 'bootstrap-probe', adapter: adapter?.platformId || 'unknown', matches, apiData, anchor: !!anchor
+        });
+        if (state.ready === true) {
+            if (await isConversationRoute()) {
+                // Use retry mechanism for initial load as well
+                initVersion++;
+                const currentVersion = initVersion;
+                void initWithRetry(currentVersion, TIMELINE_CONFIG.INIT_RETRY_DELAYS)
+                    .catch(e => window.AITGPTDiagnostics?.error("timeline.async", e));
+            }
+            
+            attachRouteListenersOnce();
+            
+            return true; // 已初始化
+        }
+        return false; // 未初始化
+    };
+    
+    // ✅ 修复：立即检查一次（处理SPA路由切换到对话页的情况）
+    // ✅ 异步检查平台是否启用
+    const platformEnabled = await isPlatformEnabled();
+    if (!platformEnabled) {
+        window.AITGPTDiagnostics?.log('timeline.init-stage', { stage: 'platform-disabled', adapter: currentAdapter?.platformId || 'unknown' });
+        return; // 当前平台未启用，不初始化
+    }
+
+    if (await checkAndInit()) {
+        // 已经初始化成功，不需要observer
+    } else {
+        // 还没有用户消息，使用 DOMObserverManager 等待
+        let unsubscribeInitial = null;
+        window.AITGPTDiagnostics?.log("timeline.waiting-for-dom", { observerAvailable: !!window.DOMObserverManager });
+        if (window.DOMObserverManager) {
+            unsubscribeInitial = window.DOMObserverManager.getInstance().subscribeBody('timeline-initial', {
+                callback: () => {
+                    void (async () => {
+                        if (await checkAndInit()) {
+                            // 初始化成功，取消订阅
+                            if (unsubscribeInitial) {
+                                unsubscribeInitial();
+                                unsubscribeInitial = null;
+                            }
+                        }
+                    })().catch(e => window.AITGPTDiagnostics?.error("timeline.async", e));
+                },
+                debounce: 150  // 150ms 防抖
+            });
+        }
+    }
+}
+
+bootstrapTimeline().catch(e => window.AITGPTDiagnostics?.error("timeline.async", e));

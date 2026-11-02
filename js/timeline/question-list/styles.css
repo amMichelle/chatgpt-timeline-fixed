@@ -1,0 +1,227 @@
+/* Question List Panel — 嵌入 wrapper，替代 timeline-bar 显示 */
+.ait-question-list-popup {
+    width: 250px;
+    background: #fff;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    border-radius: 10px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.06);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: ait-ql-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    flex-shrink: 0;
+}
+
+@keyframes ait-ql-in {
+    from { opacity: 0; transform: scale(0.96) translateY(4px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ========== Header ========== */
+.ait-ql-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 8px 10px 12px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    flex-shrink: 0;
+}
+
+.ait-ql-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #1d1d1f;
+    letter-spacing: -0.01em;
+}
+
+.ait-ql-header-right {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.ait-ql-settings,
+.ait-ql-close {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: #86868b;
+    border-radius: 6px;
+    padding: 0;
+    transition: all 0.15s;
+}
+
+.ait-ql-settings svg,
+.ait-ql-close svg { width: 12px; height: 12px; }
+
+.ait-ql-settings:hover,
+.ait-ql-close:hover { background: rgba(0, 0, 0, 0.05); color: #1d1d1f; }
+
+/* ========== List ========== */
+.ait-ql-list {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 4px 2px;
+    overscroll-behavior: contain;
+}
+
+.ait-ql-list::-webkit-scrollbar { width: 8px; }
+.ait-ql-list::-webkit-scrollbar-thumb { background: rgba(0, 0, 0, 0.2); border-radius: 10px; }
+.ait-ql-list::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.35); }
+.ait-ql-list::-webkit-scrollbar-track { background: transparent; }
+
+/* ========== Item ========== */
+.ait-ql-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 4px 6px 8px;
+    cursor: pointer;
+    transition: background 0.1s;
+    border-radius: 6px;
+    margin-bottom: 1px;
+}
+
+.ait-ql-item:last-child { margin-bottom: 0; }
+
+.ait-ql-item:hover { background: rgba(0, 0, 0, 0.04); }
+
+.ait-ql-item.active {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+/* Index */
+.ait-ql-item-index {
+    font-size: 12px;
+    font-weight: 600;
+    color: #86868b;
+    min-width: 24px;
+    text-align: right;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+}
+
+.ait-ql-item.active .ait-ql-item-index {
+    color: #1d1d1f;
+    font-weight: 700;
+}
+
+/* Text */
+.ait-ql-item-text {
+    flex: 1;
+    font-size: 12.5px;
+    color: #1d1d1f;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.5;
+}
+
+.ait-ql-item.active .ait-ql-item-text {
+    color: #1d1d1f;
+    font-weight: 500;
+}
+
+/* Pin & Star — 共用基础样式 */
+.ait-ql-item-pin,
+.ait-ql-item-star {
+    flex-shrink: 0;
+    width: 17px;
+    height: 17px;
+    cursor: pointer;
+    border-radius: 4px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-position: center;
+    transition: opacity 0.15s;
+}
+
+/* 默认隐藏，hover item 或激活态时显示 */
+.ait-ql-item-pin,
+.ait-ql-item-star { opacity: 0; }
+
+.ait-ql-item:hover .ait-ql-item-pin,
+.ait-ql-item:hover .ait-ql-item-star,
+.ait-ql-item-pin:not(.not-pinned),
+.ait-ql-item-star:not(.not-starred) { opacity: 1; }
+
+/* Pin — 未标记（深灰描边） */
+.ait-ql-item-pin.not-pinned {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23999" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 1 1 0 0 0 1-1V4a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1 1 1 0 0 1 1 1z"/></svg>');
+}
+
+.ait-ql-item:hover .ait-ql-item-pin.not-pinned { opacity: 0.5; }
+.ait-ql-item-pin.not-pinned:hover { opacity: 0.8 !important; }
+
+/* Pin — 已标记（橙色填充） */
+.ait-ql-item-pin:not(.not-pinned) {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="rgb(255, 125, 3)" stroke="rgb(255, 125, 3)" stroke-width="1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 1 1 0 0 0 1-1V4a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1 1 1 0 0 1 1 1z"/></svg>');
+}
+
+/* Star — 未收藏（深灰描边） */
+.ait-ql-item-star.not-starred {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1 -1 26 26"><path fill="none" stroke="%23999" stroke-width="1.5" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>');
+}
+
+.ait-ql-item:hover .ait-ql-item-star.not-starred { opacity: 0.5; }
+.ait-ql-item-star.not-starred:hover { opacity: 0.8 !important; }
+
+/* Star — 已收藏（橙色填充） */
+.ait-ql-item-star:not(.not-starred) {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1 -1 26 26"><path fill="rgb(255, 125, 3)" stroke="rgb(255, 125, 3)" stroke-width="0.5" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>');
+}
+
+/* ========== Empty ========== */
+.ait-ql-empty {
+    padding: 32px 16px;
+    text-align: center;
+    color: #86868b;
+    font-size: 12.5px;
+}
+
+/* ========== Dark mode ========== */
+html[data-timeline-theme="dark"] .ait-question-list-popup {
+    background: #2c2c2e;
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+html[data-timeline-theme="dark"] .ait-ql-header { border-bottom-color: rgba(255, 255, 255, 0.06); }
+html[data-timeline-theme="dark"] .ait-ql-title { color: #f5f5f7; }
+
+html[data-timeline-theme="dark"] .ait-ql-settings,
+html[data-timeline-theme="dark"] .ait-ql-close { color: #8e8e93; }
+html[data-timeline-theme="dark"] .ait-ql-settings:hover,
+html[data-timeline-theme="dark"] .ait-ql-close:hover { background: rgba(255, 255, 255, 0.08); color: #f5f5f7; }
+
+html[data-timeline-theme="dark"] .ait-ql-item:hover { background: rgba(255, 255, 255, 0.06); }
+html[data-timeline-theme="dark"] .ait-ql-item.active { background: rgba(255, 255, 255, 0.08); }
+
+html[data-timeline-theme="dark"] .ait-ql-item-index { color: #8e8e93; }
+html[data-timeline-theme="dark"] .ait-ql-item.active .ait-ql-item-index { color: #f5f5f7; }
+
+html[data-timeline-theme="dark"] .ait-ql-item-text { color: #f5f5f7; }
+html[data-timeline-theme="dark"] .ait-ql-item.active .ait-ql-item-text { color: #f5f5f7; }
+
+/* dark mode: 未标记/未收藏用浅灰描边 */
+html[data-timeline-theme="dark"] .ait-ql-item-pin.not-pinned {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23888" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 1 1 0 0 0 1-1V4a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1 1 1 0 0 1 1 1z"/></svg>');
+}
+
+html[data-timeline-theme="dark"] .ait-ql-item-star.not-starred {
+    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1 -1 26 26"><path fill="none" stroke="%23888" stroke-width="1.5" d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>');
+}
+
+html[data-timeline-theme="dark"] .ait-ql-empty { color: #8e8e93; }
+
+html[data-timeline-theme="dark"] .ait-ql-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); }
+html[data-timeline-theme="dark"] .ait-ql-list::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.35); }

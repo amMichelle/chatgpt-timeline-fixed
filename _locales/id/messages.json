@@ -1,0 +1,1100 @@
+{
+  "extName": {
+    "message": "Timeline: ChatGPT & Gemini Chat Ditingkatkan"
+  },
+  "extDescription": {
+    "message": "Timeline, folder, perpustakaan prompt, hewan peliharaan virtual. Mendukung DeepSeek, Claude & semua platform AI."
+  },
+  "qwxpzm": {
+    "message": "Favorit"
+  },
+  "hkjvnr": {
+    "message": "Lihat Favorit"
+  },
+  "zmvkpx": {
+    "message": "Simpan ke folder"
+  },
+  "bpxjkw": {
+    "message": "Hapus dari favorit"
+  },
+  "vnkxpm": {
+    "message": "Folder"
+  },
+  "kxpmzv": {
+    "message": "Ditambahkan ke favorit"
+  },
+  "pzmvkx": {
+    "message": "Dihapus dari favorit"
+  },
+  "jwvnkp": {
+    "message": "Tidak ada data"
+  },
+  "zxvkpm": {
+    "message": "Lihat semua"
+  },
+  "qdyqxsc": {
+    "message": "Hapus dari favorit?"
+  },
+  "mvkxpz": {
+    "message": "Salin"
+  },
+  "xpzmvk": {
+    "message": "Disalin"
+  },
+  "vkpxzm": {
+    "message": "Edit"
+  },
+  "kpzmvx": {
+    "message": "Gagal menyalin"
+  },
+  "zmxvkp": {
+    "message": "Silakan masukkan"
+  },
+  "commonCancel": {
+    "message": "Batal"
+  },
+  "vkmzpx": {
+    "message": "Konfirmasi"
+  },
+  "mzpxvk": {
+    "message": "Judul tidak boleh kosong"
+  },
+  "folderRequired": {
+    "message": "Silakan pilih folder"
+  },
+  "defaultFolder": {
+    "message": "Default"
+  },
+  "pinItem": {
+    "message": "Sematkan"
+  },
+  "unpinItem": {
+    "message": "Lepas"
+  },
+  "searchPrompt": {
+    "message": "Cari prompt..."
+  },
+  "promptCommonSettingsTab": {
+    "message": "Pengaturan umum"
+  },
+  "promptEmptyHint": {
+    "message": "Simpan prompt yang sering digunakan, lalu masukkan ke kotak input dengan sekali klik."
+  },
+  "promptAllSettingsTooltip": {
+    "message": "Semua pengaturan"
+  },
+  "shareExtension": {
+    "message": "Bagikan ekstensi"
+  },
+  "promptCommonSmartInputHint": {
+    "message": "Di kotak chat, atur cara tombol Enter mengontrol baris baru dan pengiriman pesan"
+  },
+  "promptCommonFeedbackTitle": {
+    "message": "Laporkan masalah atau minta fitur"
+  },
+  "promptCommonFeedbackHint": {
+    "message": "Menemukan bug atau punya ide fitur? Tinggalkan masukan di area ulasan toko ekstensi."
+  },
+  "promptCommonFeedbackButton": {
+    "message": "Beri masukan"
+  },
+  "promptCommonGithubStarTitle": {
+    "message": "Dukung dengan 🌟"
+  },
+  "promptCommonGithubStarHint": {
+    "message": "Jika Timeline berguna bagi Anda, dukung dengan Star di GitHub."
+  },
+  "promptCommonMirrorSiteHint": {
+    "message": "Sesuaikan situs chat AI lainnya untuk membuka fitur seperti Timeline, prompt, catatan cepat, dan lainnya."
+  },
+  "promptCommonGithubStarButton": {
+    "message": "Buka GitHub"
+  },
+  "timelineToggleCollapseTooltip": {
+    "message": "Ciutkan linimasa"
+  },
+  "timelineToggleExpandTooltip": {
+    "message": "Perluas linimasa"
+  },
+  "sidebarStarredHint": {
+    "message": "Saat diaktifkan, folder ditampilkan di bilah sisi"
+  },
+  "sidebarStarredManage": {
+    "message": "Pengaturan"
+  },
+  "sidebarStarredManageTitle": {
+    "message": "Kelola favorit bilah sisi"
+  },
+  "pinAction": {
+    "message": "Tandai poin penting"
+  },
+  "unpinAction": {
+    "message": "Hapus tanda penting"
+  },
+  "starAction": {
+    "message": "Simpan ke folder"
+  },
+  "unstarAction": {
+    "message": "Hapus dari tersimpan"
+  },
+  "questionListTitle": {
+    "message": "Daftar Pertanyaan"
+  },
+  "questionListEmpty": {
+    "message": "Belum ada pertanyaan"
+  },
+  "animTabTitle": {
+    "message": "Hewan peliharaan digital"
+  },
+  "animTabDesc": {
+    "message": "Ditampilkan di atas kotak chat. Hewan-hewan lucu berjalan riang saat AI membalas."
+  },
+  "animSnail": {
+    "message": "Parade siput"
+  },
+  "animZombie": {
+    "message": "Zombie berjalan"
+  },
+  "animAnt": {
+    "message": "Barisan semut"
+  },
+  "animWizard": {
+    "message": "Penyihir"
+  },
+  "animTabEmpty": {
+    "message": "Tidak ada animasi"
+  },
+  "animGrowHint": {
+    "message": "{n} pesan lagi"
+  },
+  "xvkpmz": {
+    "message": "Ganti nama"
+  },
+  "pzmkvx": {
+    "message": "Konten tidak boleh kosong"
+  },
+  "vxpzmk": {
+    "message": "Sumber terbuka"
+  },
+  "mkvxpz": {
+    "message": "Beri bintang"
+  },
+  "xpzmkv": {
+    "message": "Selamat datang"
+  },
+  "pkmzvx": {
+    "message": "Bagikan ke teman"
+  },
+  "mvxkpz": {
+    "message": "Salin rumus LaTeX"
+  },
+  "kxvpmz": {
+    "message": "Folder baru"
+  },
+  "vpmzkx": {
+    "message": "Subfolder baru"
+  },
+  "mzxvkp": {
+    "message": "Hapus"
+  },
+  "pkxvmz": {
+    "message": "Folder default"
+  },
+  "xmkvpz": {
+    "message": "Buat subfolder di \"{folderName}\""
+  },
+  "vzkpmx": {
+    "message": "Masukkan nama folder"
+  },
+  "kmxpvz": {
+    "message": "Nama folder tidak boleh kosong"
+  },
+  "pxmzvk": {
+    "message": "Edit folder"
+  },
+  "mvzxkp": {
+    "message": "Masukkan nama baru"
+  },
+  "kpvzmx": {
+    "message": "Nama folder sudah ada"
+  },
+  "xzvkpm": {
+    "message": "Berhasil dibuat"
+  },
+  "vmkxpz": {
+    "message": "Berhasil diperbarui"
+  },
+  "zpxmkv": {
+    "message": "Folder tidak ditemukan"
+  },
+  "kvpzmx": {
+    "message": "Folder dihapus"
+  },
+  "mxkvzp": {
+    "message": "Gagal menghapus"
+  },
+  "pzvkmx": {
+    "message": "Berhasil dipindahkan"
+  },
+  "vxkpmz": {
+    "message": "Pindahkan ke"
+  },
+  "wjxnkp": {
+    "message": "{count} item favorit juga akan dihapus."
+  },
+  "qzmvkx": {
+    "message": "Yakin ingin menghapus folder \"{folderName}\"?"
+  },
+  "mvkzpx": {
+    "message": "Cari..."
+  },
+  "kxzpmv": {
+    "message": "Simpan ke"
+  },
+  "vmzpkx": {
+    "message": "Folder default"
+  },
+  "pkmvxz": {
+    "message": "Judul"
+  },
+  "pxkmvz": {
+    "message": "Lini Masa"
+  },
+  "mzkvxp": {
+    "message": "Saat diaktifkan, lini masa ditampilkan di sisi kanan halaman percakapan AI"
+  },
+  "vkpmzx": {
+    "message": "Gunakan tombol ↑ / ↓ untuk navigasi antar node percakapan"
+  },
+  "xpvmkz": {
+    "message": "Saat diaktifkan, gunakan tombol ↑ / ↓ untuk melompat cepat antar node percakapan."
+  },
+  "pxmzkv": {
+    "message": "Tandai percakapan penting"
+  },
+  "kzxvpm": {
+    "message": "Tekan lama node percakapan di lini masa untuk menandainya sebagai penting."
+  },
+  "xmvkpz": {
+    "message": "Kotak input"
+  },
+  "kvzmxp": {
+    "message": "Baris baru & Kirim pesan"
+  },
+  "kpxvmz": {
+    "message": "Salin rumus"
+  },
+  "zmkvpx": {
+    "message": "Salin rumus LaTeX"
+  },
+  "vxkpzm": {
+    "message": "Saat diaktifkan, secara otomatis mendeteksi rumus di halaman dan klik untuk menyalin dalam format LaTeX."
+  },
+  "mkvzpx": {
+    "message": "Platform yang didukung"
+  },
+  "vxmkpz": {
+    "message": "Tombol Enter: tekan sekali untuk baris baru, dua kali untuk mengirim"
+  },
+  "mkpxvz": {
+    "message": "Saat diaktifkan, di kotak input chat AI, tekan Enter untuk baris baru, {mode} untuk mengirim pesan."
+  },
+  "qoytxz": {
+    "message": "Fitur ini diaktifkan secara default dan tidak dapat dimatikan"
+  },
+  "hosegod": {
+    "message": "Prompts"
+  },
+  "hobsidbg": {
+    "message": "Simpan prompt untuk akses cepat. Saat diaktifkan, tombol prompt akan ditampilkan di sisi kiri kotak chat."
+  },
+  "biwhckdj": {
+    "message": "Daftar Prompt"
+  },
+  "byaskjndg": {
+    "message": "Tambah Prompt"
+  },
+  "hsksuywm": {
+    "message": "Edit Prompt"
+  },
+  "hsuywkw": {
+    "message": "Nama Prompt"
+  },
+  "hsuywkwPlaceholder": {
+    "message": "Masukkan nama prompt"
+  },
+  "promptContent": {
+    "message": "Konten"
+  },
+  "uwkjwjw": {
+    "message": "Masukkan konten prompt"
+  },
+  "hsiwhwl": {
+    "message": "Belum ada prompt"
+  },
+  "shwsuwk": {
+    "message": "Prompt ditambahkan"
+  },
+  "hwkwbhwk": {
+    "message": "Prompt diperbarui"
+  },
+  "qrtypd": {
+    "message": "Prompt dihapus"
+  },
+  "dcnfmq": {
+    "message": "Yakin ingin menghapus prompt ini?"
+  },
+  "svkbtn": {
+    "message": "Simpan"
+  },
+  "pmpknd": {
+    "message": "Disematkan"
+  },
+  "pmuknp": {
+    "message": "Dilepas sematan"
+  },
+  "addkbt": {
+    "message": "Tambah"
+  },
+  "ptfmsl": {
+    "message": "Berlaku untuk"
+  },
+  "allptfm": {
+    "message": "Semua platform AI"
+  },
+  "febhyejd": {
+    "message": "Kirim umpan balik online"
+  },
+  "runnerTabName": {
+    "message": "Penjalankan kode"
+  },
+  "runnerSettingsTitle": {
+    "message": "Bahasa yang didukung"
+  },
+  "runnerSettingsHint": {
+    "message": "Saat diaktifkan, tombol Run akan muncul di blok kode untuk menjalankan kode secara langsung"
+  },
+  "conversationExportButtonTooltip": {
+    "message": "Ekspor percakapan"
+  },
+  "conversationExportModalTitle": {
+    "message": "Ekspor percakapan"
+  },
+  "conversationExportSectionRange": {
+    "message": "Rentang ekspor"
+  },
+  "conversationExportSectionFormat": {
+    "message": "Format ekspor"
+  },
+  "conversationExportSectionHeader": {
+    "message": "Opsi lainnya"
+  },
+  "conversationExportSectionTheme": {
+    "message": "Warna tema"
+  },
+  "conversationExportSectionList": {
+    "message": "Pilih pesan"
+  },
+  "conversationExportRangeAll": {
+    "message": "Seluruh percakapan"
+  },
+  "conversationExportRangeSelect": {
+    "message": "Pilih pesan"
+  },
+  "conversationExportHeaderShowUrl": {
+    "message": "URL percakapan"
+  },
+  "conversationExportHeaderShowTime": {
+    "message": "Waktu ekspor"
+  },
+  "conversationExportHeaderShowConversationTime": {
+    "message": "Waktu pesan"
+  },
+  "conversationExportAskTimeLabel": {
+    "message": "Waktu bertanya"
+  },
+  "conversationExportSourceLabel": {
+    "message": "URL percakapan"
+  },
+  "conversationExportTimeLabel": {
+    "message": "Waktu ekspor"
+  },
+  "conversationExportTitleLabel": {
+    "message": "Judul"
+  },
+  "conversationExportSelectAll": {
+    "message": "Pilih semua"
+  },
+  "conversationExportTurnPrefix": {
+    "message": "Pesan"
+  },
+  "conversationExportEmptyAssistant": {
+    "message": "Balasan tidak ditemukan"
+  },
+  "conversationExportEmptyUserPreview": {
+    "message": "(Tidak ada konten teks)"
+  },
+  "conversationExportCancel": {
+    "message": "Batal"
+  },
+  "conversationExportConfirm": {
+    "message": "Ekspor"
+  },
+  "conversationExportLoading": {
+    "message": "Memuat percakapan..."
+  },
+  "conversationExportLoadingProgress": {
+    "message": "Memuat percakapan... ({count} dimuat)"
+  },
+  "conversationExportCancelLoading": {
+    "message": "Batalkan pemuatan"
+  },
+  "conversationExportExporting": {
+    "message": "Mengekspor..."
+  },
+  "conversationExportDone": {
+    "message": "Percakapan diekspor"
+  },
+  "conversationExportFailed": {
+    "message": "Ekspor gagal"
+  },
+  "conversationExportNoConversation": {
+    "message": "Tidak ada percakapan untuk diekspor"
+  },
+  "conversationExportNeedSelect": {
+    "message": "Pilih setidaknya 1 pesan"
+  },
+  "conversationExportImageCannotEmbed": {
+    "message": "Gambar tidak dapat disematkan"
+  },
+  "conversationExportImageNotRendered": {
+    "message": "Gambar belum dirender dan tidak dapat disematkan (gulir ke pesan itu lalu coba lagi)"
+  },
+  "conversationExportTruncatedNotice": {
+    "message": "Konten terlalu panjang, dipangkas"
+  },
+  "conversationExportImageListTitle": {
+    "message": "Gambar"
+  },
+  "conversationExportDefaultTitle": {
+    "message": "Ekspor percakapan"
+  },
+  "fiveStarReview": {
+    "message": "Suka"
+  },
+  "goToReview": {
+    "message": "Beri kami bintang 5"
+  },
+  "runBtn": {
+    "message": "Jalankan"
+  },
+  "runnerLoadFailed": {
+    "message": "Runner gagal dimuat. Muat ulang halaman lalu coba lagi."
+  },
+  "themeDark": {
+    "message": "Gelap"
+  },
+  "themeLight": {
+    "message": "Terang"
+  },
+  "dataSyncTabName": {
+    "message": "Sinkronisasi Data"
+  },
+  "formulaFormatTitle": {
+    "message": "Pilih Format Salin"
+  },
+  "importSuccess": {
+    "message": "Impor berhasil"
+  },
+  "importSuccessHint": {
+    "message": "Data berhasil diimpor. Silakan refresh halaman"
+  },
+  "importFailed": {
+    "message": "Impor gagal"
+  },
+  "refreshPage": {
+    "message": "Refresh halaman"
+  },
+  "refreshLater": {
+    "message": "Refresh nanti"
+  },
+  "quickAsk": {
+    "message": "Tanya Lanjutan"
+  },
+  "highlightToggleTitle": {
+    "message": "Aktifkan Sorotan Teks"
+  },
+  "highlightToggleHint": {
+    "message": "Setelah diaktifkan, Anda dapat menyorot teks yang dipilih di halaman web"
+  },
+  "highlightColorTitle": {
+    "message": "Warna Sorotan"
+  },
+  "highlightMark": {
+    "message": "Sorot"
+  },
+  "highlightRemoveConfirm": {
+    "message": "Hapus sorotan ini?"
+  },
+  "highlightRemoveYes": {
+    "message": "Hapus"
+  },
+  "highlightRemoveNo": {
+    "message": "Batal"
+  },
+  "scrollToBottomTitle": {
+    "message": "Ke Bawah"
+  },
+  "scrollToBottomHint": {
+    "message": "Tampilkan tombol cepat untuk kembali ke pesan terbaru"
+  },
+  "pleaseWait": {
+    "message": "Harap tunggu, ID node sedang dimuat..."
+  },
+  "chatTimeLabelTitle": {
+    "message": "Tampilkan Waktu Chat"
+  },
+  "chatTimeLabelHint": {
+    "message": "Tampilkan waktu kirim di setiap pesan, sejelas riwayat chat"
+  },
+  "exportTitle": {
+    "message": "Sinkronisasi Manual"
+  },
+  "exportHint": {
+    "message": "Cadangkan atau pulihkan data secara manual melalui file JSON untuk migrasi ke browser lain."
+  },
+  "gdriveTitle": {
+    "message": "Sinkronisasi Google Drive"
+  },
+  "gdriveHint": {
+    "message": "Cadangkan data ke Google Drive Anda untuk sinkronisasi multi-perangkat."
+  },
+  "mermaidTabName": {
+    "message": "Mermaid"
+  },
+  "mermaidSettingsTitle": {
+    "message": "Rendering Diagram Mermaid"
+  },
+  "mermaidSettingsHint": {
+    "message": "Secara otomatis merender blok kode Mermaid sebagai diagram interaktif"
+  },
+  "mermaidDiagramBtn": {
+    "message": "Diagram"
+  },
+  "mermaidCodeBtn": {
+    "message": "Kode"
+  },
+  "mermaidFullscreen": {
+    "message": "Layar penuh"
+  },
+  "mermaidViewerHint": {
+    "message": "Gulir untuk zoom · Seret untuk menggeser · ESC untuk menutup"
+  },
+  "notepadToggleHint": {
+    "message": "Show notepad entry at the bottom of the timeline for quick notes"
+  },
+  "notepadTitle": {
+    "message": "Flash Notes"
+  },
+  "notepadPlaceholder": {
+    "message": "Just write what comes to mind…"
+  },
+  "notepadClose": {
+    "message": "Close"
+  },
+  "notepadAllNotes": {
+    "message": "All Notes"
+  },
+  "notepadNewNote": {
+    "message": "New Note"
+  },
+  "notepadConfirmDeleteTitle": {
+    "message": "Confirm Delete"
+  },
+  "notepadConfirmDeleteContent": {
+    "message": "This cannot be undone. Are you sure?"
+  },
+  "notepadUntitled": {
+    "message": "Untitled"
+  },
+  "notepadYesterday": {
+    "message": "Yesterday"
+  },
+  "notepadSaveToFolder": {
+    "message": "Simpan ke folder"
+  },
+  "formulaCopyTypeTitle": {
+    "message": "Jenis salinan rumus"
+  },
+  "formulaCopyMathML": {
+    "message": "Salin rumus MathML"
+  },
+  "formulaCopyGeneric": {
+    "message": "Salin rumus"
+  },
+  "formulaLatexTitle": {
+    "message": "Salin rumus LaTeX"
+  },
+  "formulaLatexHint": {
+    "message": "Klik rumus untuk menyalinnya dalam format LaTeX"
+  },
+  "formulaMathMLTitle": {
+    "message": "Salin rumus MathML"
+  },
+  "formulaMathMLHint": {
+    "message": "Klik rumus untuk menyalinnya dalam format MathML, bisa langsung ditempel di Word"
+  },
+  "aboutTabName": {
+    "message": "Tentang Plugin"
+  },
+  "aboutPluginTitle": {
+    "message": "Tentang ekstensi"
+  },
+  "aboutPluginContent": {
+    "message": "Timeline adalah ekstensi produktivitas untuk percakapan AI di browser, dengan timeline, folder, sorotan teks, salin rumus LaTeX, prompt kustom, dan banyak lagi — ledakkan efisiensi Anda. Mendukung ChatGPT, Gemini, Claude, DeepSeek, Kimi, Doubao, Qwen dan semua platform AI utama."
+  },
+  "aboutDataSecurityTitle": {
+    "message": "Keamanan Data"
+  },
+  "aboutDataSecurityContent": {
+    "message": "Semua data kamu disimpan secara lokal di browser atau di Google Drive kamu. Ekstensi tidak mengumpulkan, mengunggah, atau membagikan konten percakapan atau informasi pribadi kamu. Proyek ini bersifat open-source di GitHub, dan kode dapat ditinjau kapan saja."
+  },
+  "aboutDeveloperTitle": {
+    "message": "Umpan Balik"
+  },
+  "aboutDeveloperContent": {
+    "message": "Proyek ini dipelihara bersama oleh saya dan Claude Opus 4.6, dengan ritme 1–2 versi baru setiap minggu. Untuk meminta fitur atau melaporkan bug, hubungi saya melalui saluran di bawah (saya pasti akan membalas ketika melihatnya):"
+  },
+  "aboutShareTitle": {
+    "message": "Rekomendasikan ke teman"
+  },
+  "aboutShareContent": {
+    "message": "Jika Timeline berguna, silakan tulis ulasan di Xiaohongshu, Bilibili, X, Reddit, YouTube, atau platform lainnya untuk membantu lebih banyak orang menemukannya. Terima kasih. ❤️"
+  },
+  "nativeMenuStarToFolder": {
+    "message": "Star to Folder"
+  },
+  "nativeMenuAlreadyStarred": {
+    "message": "Already starred"
+  },
+  "nativeMenuStarSuccess": {
+    "message": "Starred successfully"
+  },
+  "animViewMore": {
+    "message": "Ganti hewan"
+  },
+  "dragMoveSuccess": {
+    "message": "Dipindahkan"
+  },
+  "starredHelpDesc": {
+    "message": "Folders help you organize conversations and stay clutter-free."
+  },
+  "starredHelpTipsTitle": {
+    "message": "Quick tips:"
+  },
+  "starredHelpTip1": {
+    "message": "Drag conversations into a folder."
+  },
+  "starredHelpTip2": {
+    "message": "Drag items within a folder to reorder."
+  },
+  "starredHelpTip3": {
+    "message": "Drag subfolders to reorder."
+  },
+  "starredHelpTip4": {
+    "message": "Double-click a folder or item to edit."
+  },
+  "folderMoveHasChildren": {
+    "message": "Has subfolders, cannot nest further"
+  },
+  "folderMoveMaxDepth": {
+    "message": "Maximum folder depth reached"
+  },
+  "guideSubtitle": {
+    "message": "AI conversation enhancement extension"
+  },
+  "guideTitle": {
+    "message": "Quick Start"
+  },
+  "guideStep1": {
+    "message": "Open an AI platform you use."
+  },
+  "guideStep2": {
+    "message": "Start a conversation."
+  },
+  "guideStep3": {
+    "message": "If a timeline appears on the right side of the conversation page, the installation is successful. If not, please refresh the page."
+  },
+  "guidePlatformsTitle": {
+    "message": "Supported Platforms"
+  },
+  "highlightStyleTitle": {
+    "message": "Gaya Sorotan"
+  },
+  "highlightStyleFullCover": {
+    "message": "Penuh"
+  },
+  "highlightStyleFullCoverDesc": {
+    "message": "Sorotan menutupi seluruh teks"
+  },
+  "highlightStyleHalfCover": {
+    "message": "Setengah"
+  },
+  "highlightStyleHalfCoverDesc": {
+    "message": "Sorotan menutupi setengah bawah teks"
+  },
+  "highlightStyleUnderline": {
+    "message": "Garis Bawah"
+  },
+  "highlightStyleUnderlineDesc": {
+    "message": "Sorotan muncul di bawah teks"
+  },
+  "highlightStyleTextOnly": {
+    "message": "Teks Saja"
+  },
+  "highlightStyleTextOnlyDesc": {
+    "message": "Tanpa latar, hanya warna teks"
+  },
+  "highlightMyColors": {
+    "message": "Warna Sorotan"
+  },
+  "highlightColorPlaceholder": {
+    "message": "#FF5733"
+  },
+  "highlightMaxColors": {
+    "message": "Maksimal 15 warna"
+  },
+  "highlightDeleteColorConfirm": {
+    "message": "Hapus warna {color}?"
+  },
+  "highlightAddColorTitle": {
+    "message": "Tambah Warna"
+  },
+  "highlightAddColorBtn": {
+    "message": "Warna"
+  },
+  "highlightInvalidHex": {
+    "message": "Format warna tidak valid"
+  },
+  "highlightColorExists": {
+    "message": "Warna sudah ada"
+  },
+  "highlightColorHint": {
+    "message": "Masukkan kode warna hex 6 digit, contoh #FF5733"
+  },
+  "highlightAnnotationPlaceholder": {
+    "message": "Ide…"
+  },
+  "aboutBtnChrome": {
+    "message": "Pasang Chrome"
+  },
+  "aboutBtnEdge": {
+    "message": "Pasang Edge"
+  },
+  "aboutBtnFirefox": {
+    "message": "Pasang Firefox"
+  },
+  "aboutBtnGithub": {
+    "message": "GitHub"
+  },
+  "aboutBtnDocs": {
+    "message": "Dokumentasi"
+  },
+  "changelogTitle": {
+    "message": "Timeline diperbarui!"
+  },
+  "changelogSubtitle": {
+    "message": "Digunakan oleh $1 pengguna. Versi baru, pengalaman lebih baik."
+  },
+  "changelogFeatures": {
+    "message": "Fitur Baru"
+  },
+  "changelogImprovements": {
+    "message": "Peningkatan"
+  },
+  "aboutFeedbackStore": {
+    "message": "Ulasan Chrome Store"
+  },
+  "aboutFeedbackGithub": {
+    "message": "GitHub Issues"
+  },
+  "aboutFeedbackEmail": {
+    "message": "Email"
+  },
+  "timelineDisplayLabel": {
+    "message": "Tampilkan timeline"
+  },
+  "starredDisplayLabel": {
+    "message": "Tampilkan folder"
+  },
+  "promptBtnDisplayLabel": {
+    "message": "Tampilkan tombol prompt"
+  },
+  "promptBtnSwitch": {
+    "message": "Pengaturan"
+  },
+  "formulaFormatNone": {
+    "message": "Tanpa pembungkus"
+  },
+  "gdriveUploadBtn": {
+    "message": "Unggah ke cloud"
+  },
+  "gdriveDownloadBtn": {
+    "message": "Unduh dari cloud"
+  },
+  "exportLabel": {
+    "message": "Ekspor"
+  },
+  "importLabel": {
+    "message": "Impor"
+  },
+  "gdriveUploading": {
+    "message": "Mengunggah..."
+  },
+  "gdriveUploadSuccess": {
+    "message": "Diunggah ke Google Drive"
+  },
+  "gdriveUploadFailed": {
+    "message": "Gagal mengunggah"
+  },
+  "gdriveDownloading": {
+    "message": "Mengunduh..."
+  },
+  "gdriveDownloadFailed": {
+    "message": "Gagal mengunduh"
+  },
+  "gdriveNoBackup": {
+    "message": "Tidak ada data cadangan di cloud"
+  },
+  "gdriveDataInvalid": {
+    "message": "Format data cloud tidak valid"
+  },
+  "gdriveMergeSuccess": {
+    "message": "Data cloud digabungkan"
+  },
+  "gdriveMergeHint": {
+    "message": "Data diunduh dan digabungkan dari Google Drive. Muat ulang halaman untuk menerapkan."
+  },
+  "chatWidthTitle": {
+    "message": "Lebar chat"
+  },
+  "chatWidthHint": {
+    "message": "Perlebar area percakapan untuk memanfaatkan layar"
+  },
+  "chatWidthAdjust": {
+    "message": "Sesuaikan"
+  },
+  "chatWidthCurrent": {
+    "message": "Lebar saat ini"
+  },
+  "chatWidthNormal": {
+    "message": "Normal"
+  },
+  "chatWidthConfirm": {
+    "message": "OK"
+  },
+  "chatWidthUnsupported": {
+    "message": "Penyesuaian lebar chat tidak didukung di platform ini"
+  },
+  "mirrorSiteTabName": {
+    "message": "Adaptasi Platform Baru"
+  },
+  "mirrorSiteHint": {
+    "message": "Tambahkan domain situs cermin AI. Tombol mengambang akan muncul di situs ini, memungkinkan penggunaan beberapa fitur ekstensi ini."
+  },
+  "mirrorSiteAddDomain": {
+    "message": "Tambah"
+  },
+  "mirrorSiteInputPlaceholder": {
+    "message": "Masukkan domain, mis. chat.example.com"
+  },
+  "mirrorSiteDomainListTitle": {
+    "message": "Domain yang ditambahkan"
+  },
+  "mirrorSiteNoDomains": {
+    "message": "Belum ada domain yang ditambahkan"
+  },
+  "mirrorSiteDomainAdded": {
+    "message": "Domain ditambahkan"
+  },
+  "mirrorSiteDomainRemoved": {
+    "message": "Domain dihapus"
+  },
+  "mirrorSiteDomainExists": {
+    "message": "Domain sudah ada"
+  },
+  "mirrorSiteDomainInvalid": {
+    "message": "Format domain tidak valid"
+  },
+  "mirrorSiteDomainIsOfficial": {
+    "message": "Domain ini sudah merupakan platform resmi"
+  },
+  "mirrorSiteCopied": {
+    "message": "Disalin ke papan klip"
+  },
+  "mirrorSiteCreateAdapterTitle": {
+    "message": "Configure custom platform"
+  },
+  "mirrorSiteCreateAdapterHint": {
+    "message": "Use a guided flow to generate selector config with AI for this site."
+  },
+  "mirrorSiteAdapterBadge": {
+    "message": "Timeline adapter"
+  },
+  "mirrorSiteAdapterHeroTitle": {
+    "message": "Adapt a new AI platform"
+  },
+  "mirrorSiteAdapterHeroDesc": {
+    "message": "Situs chat AI yang Anda gunakan belum didukung? Baik itu chat AI internal perusahaan, atau situs AI khusus, Anda dapat mengajukan adaptasi. Setelah berhasil, Anda dapat membuka fitur seperti Timeline, prompt, dan catatan cepat."
+  },
+  "mirrorSiteAdapterStartButton": {
+    "message": "Start setup"
+  },
+  "mirrorSiteNativeSupportedTitle": {
+    "message": "Platform AI yang didukung secara native beserta situs mirrornya:"
+  },
+  "mirrorSiteWizardStep1": {
+    "message": "Open the AI site you want to adapt and start a new conversation"
+  },
+  "mirrorSiteWizardStep2": {
+    "message": "Kirim dalam percakapan baru:"
+  },
+  "mirrorSiteWizardStep3": {
+    "message": "Copy the new conversation page URL and paste it into the input below"
+  },
+  "mirrorSiteUrlInputPlaceholder": {
+    "message": "Tempel URL percakapan baru"
+  },
+  "mirrorSiteNextButton": {
+    "message": "Next"
+  },
+  "mirrorSiteUrlRequired": {
+    "message": "Please enter URL"
+  },
+  "mirrorSiteUrlInvalid": {
+    "message": "Invalid URL format"
+  },
+  "mirrorSiteAlreadySupported": {
+    "message": "Situs ini sudah diadaptasi. Tidak perlu mengajukan lagi."
+  },
+  "mirrorSiteDemoInfoIntro": {
+    "message": "Starting from the node that contains \"$1\", 10 ancestor demo levels:"
+  },
+  "mirrorSiteDetectWaitingTitle": {
+    "message": "Sedang mendeteksi pesan 「$1」"
+  },
+  "mirrorSiteDetectWaitingDesc": {
+    "message": "Send it in the current conversation to collect automatically"
+  },
+  "mirrorSiteFeedbackSuccessLine1": {
+    "message": "Struktur halaman berhasil dianalisis! Silakan kirim adaptasi di GitHub."
+  },
+  "mirrorSiteCopyInfo": {
+    "message": "Copy info"
+  },
+  "mirrorSiteGoGithub": {
+    "message": "Kirim adaptasi di GitHub"
+  },
+  "mirrorSiteCopyEmail": {
+    "message": "Copy email"
+  },
+  "mirrorSiteEmailCopied": {
+    "message": "Email copied"
+  },
+  "mirrorSiteIssueTitle": {
+    "message": "[Adaptation Request] $1"
+  },
+  "mirrorSiteDemoErrorDomain": {
+    "message": "Domain"
+  },
+  "mirrorSiteDemoErrorStatusTitle": {
+    "message": "Collection status"
+  },
+  "mirrorSiteDemoErrorDetectedButFailed": {
+    "message": "The test message was detected, but page structure collection failed."
+  },
+  "mirrorSiteDemoErrorMessage": {
+    "message": "Error"
+  },
+  "hideStarredFromListLabel": {
+    "message": "Mode deduplikasi"
+  },
+  "hideStarredFromListHint": {
+    "message": "Saat diaktifkan, percakapan yang ditambahkan ke folder akan disembunyikan dari daftar sidebar"
+  },
+  "timelineAICompleteNotLatestToast": {
+    "message": "Balasan $1 selesai."
+  },
+  "timelineAICompleteToastTitle": {
+    "message": "Pengingat balasan AI selesai"
+  },
+  "timelineAICompleteToastHint": {
+    "message": "Tampilkan pengingat popup di kanan atas halaman setelah balasan AI selesai"
+  },
+  "timelineAICompleteSoundHint": {
+    "message": "Pengingat suara setelah balasan AI selesai"
+  },
+  "preventAutoScrollLabel": {
+    "message": "Pertahankan posisi baca saat mengirim"
+  },
+  "preventAutoScrollHint": {
+    "message": "Saat Anda mengirim pesan sambil melihat riwayat sebelumnya, halaman tetap pada posisi baca Anda saat ini alih-alih melompat ke bawah"
+  },
+  "timelineThemeColorLabel": {
+    "message": "Warna tema linimasa"
+  },
+  "timelineThemeColorHint": {
+    "message": "Atur warna tema penanda timeline aktif untuk setiap platform"
+  },
+  "timelineThemeColorManageButton": {
+    "message": "Atur"
+  },
+  "geminiWatermarkTitle": {
+    "message": "Penghapus watermark Nano Banana"
+  },
+  "geminiWatermarkHint": {
+    "message": "Tampilkan opsi unduhan penghapus watermark pada gambar yang dibuat Gemini, sehingga Anda dapat mengunduh gambar asli atau gambar tanpa watermark di kanan bawah."
+  },
+  "geminiWatermarkDownload": {
+    "message": "Unduh gambar tanpa watermark"
+  },
+  "geminiWatermarkDownloadOriginal": {
+    "message": "Unduh gambar asli"
+  },
+  "geminiWatermarkErrorGeneric": {
+    "message": "Gagal menghapus watermark"
+  },
+  "geminiWatermarkErrorNoImage": {
+    "message": "Could not find an image to process"
+  },
+  "geminiWatermarkErrorTooSmall": {
+    "message": "Image is too small to remove a watermark"
+  },
+  "geminiWatermarkErrorNoWatermark": {
+    "message": "No Gemini watermark detected on this image"
+  },
+  "geminiWatermarkErrorUnreadable": {
+    "message": "Cannot read image pixels (blocked by browser security). Try downloading the original instead."
+  },
+  "languageSettingLabel": {
+    "message": "Bahasa antarmuka"
+  },
+  "languageOptionAuto": {
+    "message": "Ikuti bahasa browser"
+  },
+  "languageChangeFailed": {
+    "message": "Gagal mengubah bahasa antarmuka"
+  },
+  "timelineAICompleteReminderHint": {
+    "message": "Pengingat popup dan suara setelah balasan AI selesai."
+  },
+  "timelineAICompleteToastOptionTitle": {
+    "message": "Pengingat popup"
+  },
+  "timelineAICompleteSoundOptionTitle": {
+    "message": "Pengingat suara"
+  },
+  "viewChangelogTooltip": {
+    "message": "Lihat riwayat pembaruan"
+  }
+}

@@ -1,0 +1,11 @@
+/*.zip
+web/
+.cursor/
+node_modules/
+*.log
+*.crx
+*.pem
+.env
+.env.*
+*.local
+*.zip

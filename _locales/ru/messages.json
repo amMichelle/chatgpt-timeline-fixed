@@ -1,0 +1,1100 @@
+{
+  "extName": {
+    "message": "Timeline: ChatGPT и Gemini чат улучшен"
+  },
+  "extDescription": {
+    "message": "Хронология, папки, библиотека промптов, виртуальный питомец. Поддержка DeepSeek, Claude и всех AI-платформ."
+  },
+  "qwxpzm": {
+    "message": "Избранное"
+  },
+  "hkjvnr": {
+    "message": "Просмотр избранного"
+  },
+  "zmvkpx": {
+    "message": "Сохранить в папку"
+  },
+  "bpxjkw": {
+    "message": "Удалить из избранного"
+  },
+  "vnkxpm": {
+    "message": "Папка"
+  },
+  "kxpmzv": {
+    "message": "Добавлено в избранное"
+  },
+  "pzmvkx": {
+    "message": "Удалено из избранного"
+  },
+  "jwvnkp": {
+    "message": "Нет данных"
+  },
+  "zxvkpm": {
+    "message": "Показать все"
+  },
+  "qdyqxsc": {
+    "message": "Удалить из избранного?"
+  },
+  "mvkxpz": {
+    "message": "Копировать"
+  },
+  "xpzmvk": {
+    "message": "Скопировано"
+  },
+  "vkpxzm": {
+    "message": "Редактировать"
+  },
+  "kpzmvx": {
+    "message": "Ошибка копирования"
+  },
+  "zmxvkp": {
+    "message": "Пожалуйста, введите"
+  },
+  "commonCancel": {
+    "message": "Отмена"
+  },
+  "vkmzpx": {
+    "message": "Подтвердить"
+  },
+  "mzpxvk": {
+    "message": "Заголовок не может быть пустым"
+  },
+  "folderRequired": {
+    "message": "Выберите папку"
+  },
+  "defaultFolder": {
+    "message": "По умолчанию"
+  },
+  "pinItem": {
+    "message": "Закрепить"
+  },
+  "unpinItem": {
+    "message": "Открепить"
+  },
+  "searchPrompt": {
+    "message": "Поиск промптов..."
+  },
+  "promptCommonSettingsTab": {
+    "message": "Частые настройки"
+  },
+  "promptEmptyHint": {
+    "message": "Сохраните часто используемые промпты и вставляйте их в поле ввода одним нажатием."
+  },
+  "promptAllSettingsTooltip": {
+    "message": "Все настройки"
+  },
+  "shareExtension": {
+    "message": "Поделиться расширением"
+  },
+  "promptCommonSmartInputHint": {
+    "message": "В поле чата настройте, как клавиша Enter управляет переносом строк и отправкой сообщений"
+  },
+  "promptCommonFeedbackTitle": {
+    "message": "Сообщить о проблеме или предложить функцию"
+  },
+  "promptCommonFeedbackHint": {
+    "message": "Нашли ошибку или есть идея? Оставьте отзыв в разделе отзывов магазина расширений."
+  },
+  "promptCommonFeedbackButton": {
+    "message": "Оставить отзыв"
+  },
+  "promptCommonGithubStarTitle": {
+    "message": "Поддержать 🌟"
+  },
+  "promptCommonGithubStarHint": {
+    "message": "Если Timeline полезен, поддержите проект звездой на GitHub."
+  },
+  "promptCommonMirrorSiteHint": {
+    "message": "Адаптируйте другие AI-чаты, чтобы открыть функции «Таймлайн», подсказки, быстрые заметки и другие."
+  },
+  "promptCommonGithubStarButton": {
+    "message": "Перейти на GitHub"
+  },
+  "timelineToggleCollapseTooltip": {
+    "message": "Свернуть шкалу времени"
+  },
+  "timelineToggleExpandTooltip": {
+    "message": "Развернуть шкалу времени"
+  },
+  "sidebarStarredHint": {
+    "message": "При включении папки отображаются на боковой панели"
+  },
+  "sidebarStarredManage": {
+    "message": "Настройки"
+  },
+  "sidebarStarredManageTitle": {
+    "message": "Избранное на боковой панели"
+  },
+  "pinAction": {
+    "message": "Отметить как важное"
+  },
+  "unpinAction": {
+    "message": "Снять отметку важного"
+  },
+  "starAction": {
+    "message": "Сохранить в папку"
+  },
+  "unstarAction": {
+    "message": "Убрать из сохранённых"
+  },
+  "questionListTitle": {
+    "message": "Вопросы"
+  },
+  "questionListEmpty": {
+    "message": "Пока нет вопросов"
+  },
+  "animTabTitle": {
+    "message": "Цифровой питомец"
+  },
+  "animTabDesc": {
+    "message": "Отображается над окном чата. Милые зверушки весело бегают, когда ИИ отвечает."
+  },
+  "animSnail": {
+    "message": "Парад улиток"
+  },
+  "animZombie": {
+    "message": "Зомби-марш"
+  },
+  "animAnt": {
+    "message": "Марш муравьёв"
+  },
+  "animWizard": {
+    "message": "Волшебник"
+  },
+  "animTabEmpty": {
+    "message": "Анимации недоступны"
+  },
+  "animGrowHint": {
+    "message": "Ещё {n} сообщений"
+  },
+  "xvkpmz": {
+    "message": "Переименовать"
+  },
+  "pzmkvx": {
+    "message": "Содержимое не может быть пустым"
+  },
+  "vxpzmk": {
+    "message": "Открытый исходный код"
+  },
+  "mkvxpz": {
+    "message": "Поставить звезду"
+  },
+  "xpzmkv": {
+    "message": "Добро пожаловать"
+  },
+  "pkmzvx": {
+    "message": "Поделиться с друзьями"
+  },
+  "mvxkpz": {
+    "message": "Копировать формулу LaTeX"
+  },
+  "kxvpmz": {
+    "message": "Новая папка"
+  },
+  "vpmzkx": {
+    "message": "Новая подпапка"
+  },
+  "mzxvkp": {
+    "message": "Удалить"
+  },
+  "pkxvmz": {
+    "message": "Папка по умолчанию"
+  },
+  "xmkvpz": {
+    "message": "Создать подпапку в «{folderName}»"
+  },
+  "vzkpmx": {
+    "message": "Введите название папки"
+  },
+  "kmxpvz": {
+    "message": "Название папки не может быть пустым"
+  },
+  "pxmzvk": {
+    "message": "Редактировать папку"
+  },
+  "mvzxkp": {
+    "message": "Введите новое название"
+  },
+  "kpvzmx": {
+    "message": "Папка с таким названием уже существует"
+  },
+  "xzvkpm": {
+    "message": "Успешно создано"
+  },
+  "vmkxpz": {
+    "message": "Успешно обновлено"
+  },
+  "zpxmkv": {
+    "message": "Папка не найдена"
+  },
+  "kvpzmx": {
+    "message": "Папка удалена"
+  },
+  "mxkvzp": {
+    "message": "Ошибка удаления"
+  },
+  "pzvkmx": {
+    "message": "Успешно перемещено"
+  },
+  "vxkpmz": {
+    "message": "Переместить в"
+  },
+  "wjxnkp": {
+    "message": "{count} избранных элементов также будут удалены."
+  },
+  "qzmvkx": {
+    "message": "Вы уверены, что хотите удалить папку «{folderName}»?"
+  },
+  "mvkzpx": {
+    "message": "Поиск..."
+  },
+  "kxzpmv": {
+    "message": "Сохранить в"
+  },
+  "vmzpkx": {
+    "message": "Папка по умолчанию"
+  },
+  "pkmvxz": {
+    "message": "Заголовок"
+  },
+  "pxkmvz": {
+    "message": "Шкала времени"
+  },
+  "mzkvxp": {
+    "message": "При включении на правой стороне страницы диалога с ИИ отображается шкала времени"
+  },
+  "vkpmzx": {
+    "message": "Используйте клавиши ↑ / ↓ для навигации по узлам диалога"
+  },
+  "xpvmkz": {
+    "message": "При включении используйте клавиши ↑ / ↓ для быстрого перехода между узлами диалога."
+  },
+  "pxmzkv": {
+    "message": "Отметить важные диалоги"
+  },
+  "kzxvpm": {
+    "message": "Нажмите и удерживайте узел диалога на шкале времени, чтобы отметить его как важный."
+  },
+  "xmvkpz": {
+    "message": "Поле ввода"
+  },
+  "kvzmxp": {
+    "message": "Перенос строки и отправка"
+  },
+  "kpxvmz": {
+    "message": "Копировать формулу"
+  },
+  "zmkvpx": {
+    "message": "Копировать формулу LaTeX"
+  },
+  "vxkpzm": {
+    "message": "При включении автоматически обнаруживает формулы на странице, и вы можете скопировать их в формате LaTeX одним кликом."
+  },
+  "mkvzpx": {
+    "message": "Поддерживаемые платформы"
+  },
+  "vxmkpz": {
+    "message": "Клавиша Enter: одно нажатие — перенос строки, двойное нажатие — отправка"
+  },
+  "mkpxvz": {
+    "message": "При включении в поле ввода чата ИИ нажатие Enter создаёт перенос строки, {mode} отправляет сообщение."
+  },
+  "qoytxz": {
+    "message": "Эта функция включена по умолчанию и не может быть отключена"
+  },
+  "hosegod": {
+    "message": "Prompts"
+  },
+  "hobsidbg": {
+    "message": "Сохраняйте промпты для быстрого доступа. При включении слева от чата отображается кнопка промптов."
+  },
+  "biwhckdj": {
+    "message": "Список промптов"
+  },
+  "byaskjndg": {
+    "message": "Добавить промпт"
+  },
+  "hsksuywm": {
+    "message": "Редактировать промпт"
+  },
+  "hsuywkw": {
+    "message": "Название промпта"
+  },
+  "hsuywkwPlaceholder": {
+    "message": "Введите название промпта"
+  },
+  "promptContent": {
+    "message": "Содержимое"
+  },
+  "uwkjwjw": {
+    "message": "Введите содержимое промпта"
+  },
+  "hsiwhwl": {
+    "message": "Нет промптов"
+  },
+  "shwsuwk": {
+    "message": "Промпт добавлен"
+  },
+  "hwkwbhwk": {
+    "message": "Промпт обновлён"
+  },
+  "qrtypd": {
+    "message": "Промпт удалён"
+  },
+  "dcnfmq": {
+    "message": "Вы уверены, что хотите удалить этот промпт?"
+  },
+  "svkbtn": {
+    "message": "Сохранить"
+  },
+  "pmpknd": {
+    "message": "Закреплено"
+  },
+  "pmuknp": {
+    "message": "Откреплено"
+  },
+  "addkbt": {
+    "message": "Добавить"
+  },
+  "ptfmsl": {
+    "message": "Применяется к"
+  },
+  "allptfm": {
+    "message": "Все ИИ-платформы"
+  },
+  "febhyejd": {
+    "message": "Отправить отзыв онлайн"
+  },
+  "runnerTabName": {
+    "message": "Запуск кода"
+  },
+  "runnerSettingsTitle": {
+    "message": "Поддерживаемые языки"
+  },
+  "runnerSettingsHint": {
+    "message": "При включении на блоках кода появится кнопка Run для прямого выполнения кода"
+  },
+  "conversationExportButtonTooltip": {
+    "message": "Экспорт разговора"
+  },
+  "conversationExportModalTitle": {
+    "message": "Экспорт разговора"
+  },
+  "conversationExportSectionRange": {
+    "message": "Диапазон экспорта"
+  },
+  "conversationExportSectionFormat": {
+    "message": "Формат экспорта"
+  },
+  "conversationExportSectionHeader": {
+    "message": "Дополнительно"
+  },
+  "conversationExportSectionTheme": {
+    "message": "Цвет темы"
+  },
+  "conversationExportSectionList": {
+    "message": "Выбрать сообщения"
+  },
+  "conversationExportRangeAll": {
+    "message": "Весь разговор"
+  },
+  "conversationExportRangeSelect": {
+    "message": "Выбрать сообщения"
+  },
+  "conversationExportHeaderShowUrl": {
+    "message": "URL разговора"
+  },
+  "conversationExportHeaderShowTime": {
+    "message": "Время экспорта"
+  },
+  "conversationExportHeaderShowConversationTime": {
+    "message": "Время сообщения"
+  },
+  "conversationExportAskTimeLabel": {
+    "message": "Время вопроса"
+  },
+  "conversationExportSourceLabel": {
+    "message": "URL разговора"
+  },
+  "conversationExportTimeLabel": {
+    "message": "Время экспорта"
+  },
+  "conversationExportTitleLabel": {
+    "message": "Заголовок"
+  },
+  "conversationExportSelectAll": {
+    "message": "Выбрать все"
+  },
+  "conversationExportTurnPrefix": {
+    "message": "Сообщение"
+  },
+  "conversationExportEmptyAssistant": {
+    "message": "Ответ не найден"
+  },
+  "conversationExportEmptyUserPreview": {
+    "message": "(Нет текста)"
+  },
+  "conversationExportCancel": {
+    "message": "Отмена"
+  },
+  "conversationExportConfirm": {
+    "message": "Экспорт"
+  },
+  "conversationExportLoading": {
+    "message": "Загрузка разговора..."
+  },
+  "conversationExportLoadingProgress": {
+    "message": "Загрузка разговора... (загружено {count})"
+  },
+  "conversationExportCancelLoading": {
+    "message": "Отменить загрузку"
+  },
+  "conversationExportExporting": {
+    "message": "Экспорт..."
+  },
+  "conversationExportDone": {
+    "message": "Разговор экспортирован"
+  },
+  "conversationExportFailed": {
+    "message": "Ошибка экспорта"
+  },
+  "conversationExportNoConversation": {
+    "message": "Не найден разговор для экспорта"
+  },
+  "conversationExportNeedSelect": {
+    "message": "Выберите хотя бы 1 сообщение"
+  },
+  "conversationExportImageCannotEmbed": {
+    "message": "Невозможно встроить изображение"
+  },
+  "conversationExportImageNotRendered": {
+    "message": "Изображение не отрисовано и не может быть встроено (прокрутите к этому сообщению и повторите)"
+  },
+  "conversationExportTruncatedNotice": {
+    "message": "Содержимое слишком длинное, обрезано"
+  },
+  "conversationExportImageListTitle": {
+    "message": "Изображение"
+  },
+  "conversationExportDefaultTitle": {
+    "message": "Экспорт разговора"
+  },
+  "fiveStarReview": {
+    "message": "Нравится"
+  },
+  "goToReview": {
+    "message": "Поставьте нам 5 звёзд"
+  },
+  "runBtn": {
+    "message": "Запуск"
+  },
+  "runnerLoadFailed": {
+    "message": "Не удалось загрузить средство запуска. Обновите страницу и повторите попытку."
+  },
+  "themeDark": {
+    "message": "Тёмная"
+  },
+  "themeLight": {
+    "message": "Светлая"
+  },
+  "dataSyncTabName": {
+    "message": "Синхронизация данных"
+  },
+  "formulaFormatTitle": {
+    "message": "Выберите формат копирования"
+  },
+  "importSuccess": {
+    "message": "Импорт успешен"
+  },
+  "importSuccessHint": {
+    "message": "Данные успешно импортированы. Обновите страницу для применения"
+  },
+  "importFailed": {
+    "message": "Ошибка импорта"
+  },
+  "refreshPage": {
+    "message": "Обновить страницу"
+  },
+  "refreshLater": {
+    "message": "Обновить позже"
+  },
+  "quickAsk": {
+    "message": "Уточнить"
+  },
+  "highlightToggleTitle": {
+    "message": "Включить выделение текста"
+  },
+  "highlightToggleHint": {
+    "message": "После включения можно выделять выбранный текст на веб-страницах"
+  },
+  "highlightColorTitle": {
+    "message": "Цвет выделения"
+  },
+  "highlightMark": {
+    "message": "Выделить"
+  },
+  "highlightRemoveConfirm": {
+    "message": "Удалить это выделение?"
+  },
+  "highlightRemoveYes": {
+    "message": "Удалить"
+  },
+  "highlightRemoveNo": {
+    "message": "Отмена"
+  },
+  "scrollToBottomTitle": {
+    "message": "Вниз"
+  },
+  "scrollToBottomHint": {
+    "message": "Показать кнопку быстрого перехода к последнему сообщению"
+  },
+  "pleaseWait": {
+    "message": "Пожалуйста, подождите, загрузка ID узла..."
+  },
+  "chatTimeLabelTitle": {
+    "message": "Показать время чата"
+  },
+  "chatTimeLabelHint": {
+    "message": "Показывать время отправки для каждого сообщения, наглядно как в истории чата"
+  },
+  "exportTitle": {
+    "message": "Ручная синхронизация"
+  },
+  "exportHint": {
+    "message": "Ручное резервное копирование или восстановление данных через JSON-файл для переноса в другие браузеры."
+  },
+  "gdriveTitle": {
+    "message": "Синхронизация Google Drive"
+  },
+  "gdriveHint": {
+    "message": "Резервное копирование данных в Google Drive для синхронизации между устройствами."
+  },
+  "mermaidTabName": {
+    "message": "Mermaid"
+  },
+  "mermaidSettingsTitle": {
+    "message": "Отображение диаграмм Mermaid"
+  },
+  "mermaidSettingsHint": {
+    "message": "Автоматически отображать блоки кода Mermaid как интерактивные диаграммы"
+  },
+  "mermaidDiagramBtn": {
+    "message": "Диаграмма"
+  },
+  "mermaidCodeBtn": {
+    "message": "Код"
+  },
+  "mermaidFullscreen": {
+    "message": "Полный экран"
+  },
+  "mermaidViewerHint": {
+    "message": "Прокрутка для масштабирования · Перетаскивание для перемещения · ESC для закрытия"
+  },
+  "notepadToggleHint": {
+    "message": "Show notepad entry at the bottom of the timeline for quick notes"
+  },
+  "notepadTitle": {
+    "message": "Flash Notes"
+  },
+  "notepadPlaceholder": {
+    "message": "Just write what comes to mind…"
+  },
+  "notepadClose": {
+    "message": "Close"
+  },
+  "notepadAllNotes": {
+    "message": "All Notes"
+  },
+  "notepadNewNote": {
+    "message": "New Note"
+  },
+  "notepadConfirmDeleteTitle": {
+    "message": "Confirm Delete"
+  },
+  "notepadConfirmDeleteContent": {
+    "message": "This cannot be undone. Are you sure?"
+  },
+  "notepadUntitled": {
+    "message": "Untitled"
+  },
+  "notepadYesterday": {
+    "message": "Yesterday"
+  },
+  "notepadSaveToFolder": {
+    "message": "Сохранить в папку"
+  },
+  "formulaCopyTypeTitle": {
+    "message": "Тип копирования формулы"
+  },
+  "formulaCopyMathML": {
+    "message": "Копировать формулу MathML"
+  },
+  "formulaCopyGeneric": {
+    "message": "Копировать формулу"
+  },
+  "formulaLatexTitle": {
+    "message": "Копировать формулу LaTeX"
+  },
+  "formulaLatexHint": {
+    "message": "Нажмите на формулу, чтобы скопировать в формате LaTeX"
+  },
+  "formulaMathMLTitle": {
+    "message": "Копировать формулу MathML"
+  },
+  "formulaMathMLHint": {
+    "message": "Нажмите на формулу, чтобы скопировать в формате MathML — можно вставить прямо в Word"
+  },
+  "aboutTabName": {
+    "message": "О плагине"
+  },
+  "aboutPluginTitle": {
+    "message": "О расширении"
+  },
+  "aboutPluginContent": {
+    "message": "Timeline — расширение для повышения продуктивности в браузерных диалогах с ИИ. Таймлайн, папки, выделение текста, копирование формул LaTeX, пользовательские промпты и многое другое — взрывная эффективность. Поддерживает ChatGPT, Gemini, Claude, DeepSeek, Kimi, Doubao, Qwen и все основные ИИ-платформы."
+  },
+  "aboutDataSecurityTitle": {
+    "message": "Безопасность данных"
+  },
+  "aboutDataSecurityContent": {
+    "message": "Все ваши данные хранятся локально в вашем браузере или в вашем Google Drive. Расширение не собирает, не загружает и не передаёт содержимое ваших разговоров или личную информацию. Проект имеет открытый исходный код на GitHub, и код доступен для проверки в любое время."
+  },
+  "aboutDeveloperTitle": {
+    "message": "Обратная связь"
+  },
+  "aboutDeveloperContent": {
+    "message": "Этот проект поддерживаем мы вместе с Claude Opus 4.6, выпуская 1–2 новые версии каждую неделю. Чтобы запросить функцию или сообщить об ошибке, свяжитесь со мной через каналы ниже (я обязательно отвечу, когда увижу):"
+  },
+  "aboutShareTitle": {
+    "message": "Рекомендовать друзьям"
+  },
+  "aboutShareContent": {
+    "message": "Если Timeline вам полезен, буду рад, если напишете отзыв на Xiaohongshu, Bilibili, X, Reddit, YouTube или других платформах, чтобы больше людей узнали о нём. Спасибо. ❤️"
+  },
+  "nativeMenuStarToFolder": {
+    "message": "Star to Folder"
+  },
+  "nativeMenuAlreadyStarred": {
+    "message": "Already starred"
+  },
+  "nativeMenuStarSuccess": {
+    "message": "Starred successfully"
+  },
+  "animViewMore": {
+    "message": "Сменить питомца"
+  },
+  "dragMoveSuccess": {
+    "message": "Перемещено"
+  },
+  "starredHelpDesc": {
+    "message": "Folders help you organize conversations and stay clutter-free."
+  },
+  "starredHelpTipsTitle": {
+    "message": "Quick tips:"
+  },
+  "starredHelpTip1": {
+    "message": "Drag conversations into a folder."
+  },
+  "starredHelpTip2": {
+    "message": "Drag items within a folder to reorder."
+  },
+  "starredHelpTip3": {
+    "message": "Drag subfolders to reorder."
+  },
+  "starredHelpTip4": {
+    "message": "Double-click a folder or item to edit."
+  },
+  "folderMoveHasChildren": {
+    "message": "Has subfolders, cannot nest further"
+  },
+  "folderMoveMaxDepth": {
+    "message": "Maximum folder depth reached"
+  },
+  "guideSubtitle": {
+    "message": "AI conversation enhancement extension"
+  },
+  "guideTitle": {
+    "message": "Quick Start"
+  },
+  "guideStep1": {
+    "message": "Open an AI platform you use."
+  },
+  "guideStep2": {
+    "message": "Start a conversation."
+  },
+  "guideStep3": {
+    "message": "If a timeline appears on the right side of the conversation page, the installation is successful. If not, please refresh the page."
+  },
+  "guidePlatformsTitle": {
+    "message": "Supported Platforms"
+  },
+  "highlightStyleTitle": {
+    "message": "Стиль выделения"
+  },
+  "highlightStyleFullCover": {
+    "message": "Полное покрытие"
+  },
+  "highlightStyleFullCoverDesc": {
+    "message": "Выделение полностью покрывает текст"
+  },
+  "highlightStyleHalfCover": {
+    "message": "Половина"
+  },
+  "highlightStyleHalfCoverDesc": {
+    "message": "Выделение покрывает нижнюю половину текста"
+  },
+  "highlightStyleUnderline": {
+    "message": "Подчёркивание"
+  },
+  "highlightStyleUnderlineDesc": {
+    "message": "Выделение под текстом"
+  },
+  "highlightStyleTextOnly": {
+    "message": "Только текст"
+  },
+  "highlightStyleTextOnlyDesc": {
+    "message": "Без фона, только цвет текста"
+  },
+  "highlightMyColors": {
+    "message": "Цвета выделения"
+  },
+  "highlightColorPlaceholder": {
+    "message": "#FF5733"
+  },
+  "highlightMaxColors": {
+    "message": "Максимум 15 цветов"
+  },
+  "highlightDeleteColorConfirm": {
+    "message": "Удалить цвет {color}?"
+  },
+  "highlightAddColorTitle": {
+    "message": "Добавить цвет"
+  },
+  "highlightAddColorBtn": {
+    "message": "Цвет"
+  },
+  "highlightInvalidHex": {
+    "message": "Неверный формат цвета"
+  },
+  "highlightColorExists": {
+    "message": "Цвет уже существует"
+  },
+  "highlightColorHint": {
+    "message": "Введите 6-значный HEX-код цвета, например #FF5733"
+  },
+  "highlightAnnotationPlaceholder": {
+    "message": "Мысли…"
+  },
+  "aboutBtnChrome": {
+    "message": "Chrome Установить"
+  },
+  "aboutBtnEdge": {
+    "message": "Edge Установить"
+  },
+  "aboutBtnFirefox": {
+    "message": "Firefox Установить"
+  },
+  "aboutBtnGithub": {
+    "message": "GitHub"
+  },
+  "aboutBtnDocs": {
+    "message": "Документация"
+  },
+  "changelogTitle": {
+    "message": "Timeline обновлён!"
+  },
+  "changelogSubtitle": {
+    "message": "$1 пользователей используют. Новая версия, лучший опыт."
+  },
+  "changelogFeatures": {
+    "message": "Новое"
+  },
+  "changelogImprovements": {
+    "message": "Улучшения"
+  },
+  "aboutFeedbackStore": {
+    "message": "Отзывы в Chrome Store"
+  },
+  "aboutFeedbackGithub": {
+    "message": "GitHub Issues"
+  },
+  "aboutFeedbackEmail": {
+    "message": "Эл. почта"
+  },
+  "timelineDisplayLabel": {
+    "message": "Показать хронологию"
+  },
+  "starredDisplayLabel": {
+    "message": "Показать папки"
+  },
+  "promptBtnDisplayLabel": {
+    "message": "Показать кнопку подсказок"
+  },
+  "promptBtnSwitch": {
+    "message": "Настройки"
+  },
+  "formulaFormatNone": {
+    "message": "Без обёртки"
+  },
+  "gdriveUploadBtn": {
+    "message": "Загрузить в облако"
+  },
+  "gdriveDownloadBtn": {
+    "message": "Скачать из облака"
+  },
+  "exportLabel": {
+    "message": "Экспорт"
+  },
+  "importLabel": {
+    "message": "Импорт"
+  },
+  "gdriveUploading": {
+    "message": "Загрузка..."
+  },
+  "gdriveUploadSuccess": {
+    "message": "Загружено на Google Drive"
+  },
+  "gdriveUploadFailed": {
+    "message": "Ошибка загрузки"
+  },
+  "gdriveDownloading": {
+    "message": "Скачивание..."
+  },
+  "gdriveDownloadFailed": {
+    "message": "Ошибка скачивания"
+  },
+  "gdriveNoBackup": {
+    "message": "Нет данных резервной копии в облаке"
+  },
+  "gdriveDataInvalid": {
+    "message": "Неверный формат облачных данных"
+  },
+  "gdriveMergeSuccess": {
+    "message": "Облачные данные объединены"
+  },
+  "gdriveMergeHint": {
+    "message": "Данные загружены и объединены из Google Drive. Обновите страницу для применения."
+  },
+  "chatWidthTitle": {
+    "message": "Ширина чата"
+  },
+  "chatWidthHint": {
+    "message": "Расширить область диалога для лучшего использования экрана"
+  },
+  "chatWidthAdjust": {
+    "message": "Настроить"
+  },
+  "chatWidthCurrent": {
+    "message": "Текущая ширина"
+  },
+  "chatWidthNormal": {
+    "message": "Обычная"
+  },
+  "chatWidthConfirm": {
+    "message": "OK"
+  },
+  "chatWidthUnsupported": {
+    "message": "Настройка ширины чата не поддерживается на этой платформе"
+  },
+  "mirrorSiteTabName": {
+    "message": "Адаптировать новую платформу"
+  },
+  "mirrorSiteHint": {
+    "message": "Добавьте домены зеркал AI-сайтов. На этих сайтах появится плавающая кнопка, позволяющая использовать некоторые функции этого расширения."
+  },
+  "mirrorSiteAddDomain": {
+    "message": "Добавить"
+  },
+  "mirrorSiteInputPlaceholder": {
+    "message": "Введите домен, напр. chat.example.com"
+  },
+  "mirrorSiteDomainListTitle": {
+    "message": "Добавленные домены"
+  },
+  "mirrorSiteNoDomains": {
+    "message": "Домены не добавлены"
+  },
+  "mirrorSiteDomainAdded": {
+    "message": "Домен добавлен"
+  },
+  "mirrorSiteDomainRemoved": {
+    "message": "Домен удалён"
+  },
+  "mirrorSiteDomainExists": {
+    "message": "Домен уже существует"
+  },
+  "mirrorSiteDomainInvalid": {
+    "message": "Неверный формат домена"
+  },
+  "mirrorSiteDomainIsOfficial": {
+    "message": "Этот домен уже является официальной платформой"
+  },
+  "mirrorSiteCopied": {
+    "message": "Скопировано в буфер обмена"
+  },
+  "mirrorSiteCreateAdapterTitle": {
+    "message": "Configure custom platform"
+  },
+  "mirrorSiteCreateAdapterHint": {
+    "message": "Use a guided flow to generate selector config with AI for this site."
+  },
+  "mirrorSiteAdapterBadge": {
+    "message": "Timeline adapter"
+  },
+  "mirrorSiteAdapterHeroTitle": {
+    "message": "Adapt a new AI platform"
+  },
+  "mirrorSiteAdapterHeroDesc": {
+    "message": "AI-чат, которым вы пользуетесь, не поддерживается? Будь то внутренний корпоративный AI-чат или малоизвестный AI-сайт — вы можете запросить адаптацию. После неё станут доступны функции «Таймлайн», подсказки и быстрые заметки."
+  },
+  "mirrorSiteAdapterStartButton": {
+    "message": "Start setup"
+  },
+  "mirrorSiteNativeSupportedTitle": {
+    "message": "AI-платформы с нативной поддержкой и их зеркала:"
+  },
+  "mirrorSiteWizardStep1": {
+    "message": "Open the AI site you want to adapt and start a new conversation"
+  },
+  "mirrorSiteWizardStep2": {
+    "message": "Отправьте в новом диалоге:"
+  },
+  "mirrorSiteWizardStep3": {
+    "message": "Copy the new conversation page URL and paste it into the input below"
+  },
+  "mirrorSiteUrlInputPlaceholder": {
+    "message": "Вставьте URL новой беседы"
+  },
+  "mirrorSiteNextButton": {
+    "message": "Next"
+  },
+  "mirrorSiteUrlRequired": {
+    "message": "Please enter URL"
+  },
+  "mirrorSiteUrlInvalid": {
+    "message": "Invalid URL format"
+  },
+  "mirrorSiteAlreadySupported": {
+    "message": "Этот сайт уже адаптирован. Повторная заявка не требуется."
+  },
+  "mirrorSiteDemoInfoIntro": {
+    "message": "Starting from the node that contains \"$1\", 10 ancestor demo levels:"
+  },
+  "mirrorSiteDetectWaitingTitle": {
+    "message": "Идёт обнаружение сообщения 「$1」"
+  },
+  "mirrorSiteDetectWaitingDesc": {
+    "message": "Send it in the current conversation to collect automatically"
+  },
+  "mirrorSiteFeedbackSuccessLine1": {
+    "message": "Структура страницы успешно проанализирована! Пожалуйста, отправьте адаптацию на GitHub."
+  },
+  "mirrorSiteCopyInfo": {
+    "message": "Copy info"
+  },
+  "mirrorSiteGoGithub": {
+    "message": "Отправить адаптацию на GitHub"
+  },
+  "mirrorSiteCopyEmail": {
+    "message": "Copy email"
+  },
+  "mirrorSiteEmailCopied": {
+    "message": "Email copied"
+  },
+  "mirrorSiteIssueTitle": {
+    "message": "[Adaptation Request] $1"
+  },
+  "mirrorSiteDemoErrorDomain": {
+    "message": "Domain"
+  },
+  "mirrorSiteDemoErrorStatusTitle": {
+    "message": "Collection status"
+  },
+  "mirrorSiteDemoErrorDetectedButFailed": {
+    "message": "The test message was detected, but page structure collection failed."
+  },
+  "mirrorSiteDemoErrorMessage": {
+    "message": "Error"
+  },
+  "hideStarredFromListLabel": {
+    "message": "Режим дедупликации"
+  },
+  "hideStarredFromListHint": {
+    "message": "При включении разговоры, добавленные в папки, будут скрыты из боковой панели"
+  },
+  "timelineAICompleteNotLatestToast": {
+    "message": "Ответ $1 завершён."
+  },
+  "timelineAICompleteToastTitle": {
+    "message": "Напоминание о завершении ответа ИИ"
+  },
+  "timelineAICompleteToastHint": {
+    "message": "Показывать всплывающее напоминание в правом верхнем углу страницы после завершения ответа ИИ"
+  },
+  "timelineAICompleteSoundHint": {
+    "message": "Звуковое напоминание после завершения ответа ИИ"
+  },
+  "preventAutoScrollLabel": {
+    "message": "Сохранять позицию чтения при отправке"
+  },
+  "preventAutoScrollHint": {
+    "message": "Когда вы отправляете сообщение, просматривая более раннюю историю, страница остаётся на текущей позиции чтения, а не прыгает вниз"
+  },
+  "timelineThemeColorLabel": {
+    "message": "Цвет темы таймлайна"
+  },
+  "timelineThemeColorHint": {
+    "message": "Настройте цвет темы активного маркера таймлайна для каждой платформы"
+  },
+  "timelineThemeColorManageButton": {
+    "message": "Настроить"
+  },
+  "geminiWatermarkTitle": {
+    "message": "Удаление водяного знака Nano Banana"
+  },
+  "geminiWatermarkHint": {
+    "message": "Показывает варианты скачивания с удалением водяного знака для изображений, созданных Gemini: можно скачать исходное изображение или изображение без водяного знака в правом нижнем углу."
+  },
+  "geminiWatermarkDownload": {
+    "message": "Скачать изображение без водяного знака"
+  },
+  "geminiWatermarkDownloadOriginal": {
+    "message": "Скачать исходное изображение"
+  },
+  "geminiWatermarkErrorGeneric": {
+    "message": "Не удалось удалить водяной знак"
+  },
+  "geminiWatermarkErrorNoImage": {
+    "message": "Не найдено изображение для обработки"
+  },
+  "geminiWatermarkErrorTooSmall": {
+    "message": "Изображение слишком маленькое для удаления водяного знака"
+  },
+  "geminiWatermarkErrorNoWatermark": {
+    "message": "Водяной знак Gemini не обнаружен"
+  },
+  "geminiWatermarkErrorUnreadable": {
+    "message": "Не удалось прочитать пиксели (ограничения браузера). Попробуйте скачать оригинал"
+  },
+  "languageSettingLabel": {
+    "message": "Язык интерфейса"
+  },
+  "languageOptionAuto": {
+    "message": "Использовать язык браузера"
+  },
+  "languageChangeFailed": {
+    "message": "Не удалось изменить язык интерфейса"
+  },
+  "timelineAICompleteReminderHint": {
+    "message": "Всплывающие и звуковые напоминания после завершения ответа ИИ."
+  },
+  "timelineAICompleteToastOptionTitle": {
+    "message": "Всплывающее напоминание"
+  },
+  "timelineAICompleteSoundOptionTitle": {
+    "message": "Звуковое напоминание"
+  },
+  "viewChangelogTooltip": {
+    "message": "Посмотреть историю обновлений"
+  }
+}
