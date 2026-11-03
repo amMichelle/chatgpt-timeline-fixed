@@ -44,6 +44,13 @@ const message = (id, role, text) => ({
   content: { content_type: 'text', parts: [text] }
 });
 
+const attachmentMessage = (id, parts) => ({
+  id,
+  author: { role: 'user' },
+  recipient: 'all',
+  content: { content_type: 'multimodal_text', parts }
+});
+
 const mappingFixture = (conversationId, suffix = '') => {
   const nodes = [
     ['u1' + suffix, null, message('mu1' + suffix, 'user', 'first question')],
@@ -58,13 +65,44 @@ const mappingFixture = (conversationId, suffix = '') => {
   return { conversation_id: conversationId, current_node: nodes.at(-1)[0], mapping };
 };
 
+const attachmentFixture = conversationId => {
+  const values = [
+    attachmentMessage('image-only-1', [{ content_type: 'image_asset_pointer', asset_pointer: 'file-service://image-1' }]),
+    message('answer-1', 'assistant', 'image answer'),
+    attachmentMessage('file-only-1', [{ content_type: 'file_asset_pointer', asset_pointer: 'file-service://file-1' }]),
+    message('answer-2', 'assistant', 'file answer'),
+    attachmentMessage('image-only-2', [{ content_type: 'image_asset_pointer', asset_pointer: 'file-service://image-2' }]),
+    message('answer-3', 'assistant', 'second image answer'),
+    attachmentMessage('mixed-1', ['same text', { content_type: 'image_asset_pointer', asset_pointer: 'file-service://image-3' }]),
+    message('answer-4', 'assistant', 'mixed answer'),
+    message('duplicate-1', 'user', 'same text'),
+    message('answer-5', 'assistant', 'duplicate answer'),
+    message('duplicate-2', 'user', 'same text')
+  ];
+  const mapping = {};
+  values.forEach((value, index) => {
+    const nodeId = `node-${value.id}`;
+    const previous = values[index - 1];
+    const next = values[index + 1];
+    mapping[nodeId] = {
+      id: nodeId,
+      parent: previous ? `node-${previous.id}` : null,
+      children: next ? [`node-${next.id}`] : [],
+      message: value
+    };
+  });
+  return { conversation_id: conversationId, current_node: `node-${values.at(-1).id}`, mapping };
+};
+
 async function testCaptureIndexAndIsolation() {
   const document = new FakeEventTarget();
   const conversationId = '12345678-1234-1234-1234-123456789012';
   const otherId = '87654321-4321-4321-4321-210987654321';
+  const attachmentId = '11111111-2222-3333-4444-555555555555';
   const fixtures = new Map([
     [conversationId, mappingFixture(conversationId)],
-    [otherId, mappingFixture(otherId, '-other')]
+    [otherId, mappingFixture(otherId, '-other')],
+    [attachmentId, attachmentFixture(attachmentId)]
   ]);
   const fetch = async url => {
     const parsed = new URL(String(url));
@@ -116,6 +154,17 @@ async function testCaptureIndexAndIsolation() {
   document.dispatchEvent(new FakeCustomEvent('ait-gpt-user-texts-pull', { detail: otherId }));
   assert.deepEqual(pulled.turns.map(turn => turn.id), ['u1-other', 'u2-other']);
   assert.equal(pulled.texts.u1, undefined, 'conversation buckets must not leak across SPA routes');
+
+  await window.fetch(`https://chatgpt.com/backend-api/conversation/${attachmentId}`);
+  await new Promise(resolve => setImmediate(resolve));
+  document.dispatchEvent(new FakeCustomEvent('ait-gpt-user-texts-pull', { detail: attachmentId }));
+  assert.deepEqual(pulled.turns.map(turn => turn.messageId),
+    ['image-only-1', 'file-only-1', 'image-only-2', 'mixed-1', 'duplicate-1', 'duplicate-2']);
+  assert.equal(pulled.turns[0].text, '[图片或文件]');
+  assert.equal(pulled.turns[1].text, '[图片或文件]');
+  assert.notEqual(pulled.turns[0].id, pulled.turns[2].id, 'consecutive image-only turns retain distinct stable identities');
+  assert.notEqual(pulled.turns[4].id, pulled.turns[5].id, 'duplicate text never becomes the identity key');
+  assert.equal(pulled.turns[3].text, 'same text', 'mixed text/attachment keeps text while retaining the message identity');
 }
 
 async function testPaginationAndCompleteSnapshotProtection() {
@@ -250,35 +299,128 @@ async function testPaginationAndCompleteSnapshotProtection() {
 }
 
 async function testVirtualizerBridge() {
-  class FakeElement {}
-  let attempted = null;
-  const virtualizer = {
-    getVirtualItems() { return []; },
-    getTotalSize() { return 1000; },
-    scrollToIndex(options) { attempted = options.index; }
+  const runBridge = async (virtualizer, request, options = {}) => {
+    class FakeElement {}
+    const element = new FakeElement();
+    element.__reactFiber$test = { memoizedState: { virtualizer } };
+    element.parentElement = null;
+    const document = new FakeEventTarget();
+    document.querySelectorAll = () => [element];
+    document.documentElement = element;
+    document.body = element;
+    const window = {};
+    const context = vm.createContext({
+      window, document, Element: FakeElement, CustomEvent: FakeCustomEvent,
+      Date, Math, JSON, Set, WeakSet, WeakMap, Object, Array, Promise,
+      performance: { now: options.performanceNow || (() => Date.now()) }, setTimeout, clearTimeout
+    });
+    vm.runInContext(fs.readFileSync(path.join(root, 'js/apiCapture/chatgpt-virtualizer.js'), 'utf8'), context);
+    return new Promise(resolve => {
+      document.addEventListener('ait-gpt-virtualizer-jump-result', event => resolve(JSON.parse(event.detail)), { once: true });
+      document.dispatchEvent(new FakeCustomEvent('ait-gpt-virtualizer-jump', {
+        detail: JSON.stringify({ requestId: 'bridge-case', deadlineMs: 900, ...request })
+      }));
+      if (Number.isFinite(options.cancelAfterMs)) {
+        setTimeout(() => document.dispatchEvent(new FakeCustomEvent('ait-gpt-virtualizer-jump-cancel', {
+          detail: JSON.stringify({ all: true, reason: 'newer-click' })
+        })), options.cancelAfterMs);
+      }
+    });
   };
-  const element = new FakeElement();
-  element.__reactFiber$test = { memoizedState: { virtualizer } };
-  element.parentElement = null;
-  const document = new FakeEventTarget();
-  document.querySelectorAll = () => [element];
-  document.documentElement = element;
-  document.body = element;
-  const window = {};
-  const context = vm.createContext({ window, document, Element: FakeElement, CustomEvent: FakeCustomEvent, Date, Math, JSON, Set, WeakSet, Object, Array, Promise });
-  vm.runInContext(fs.readFileSync(path.join(root, 'js/apiCapture/chatgpt-virtualizer.js'), 'utf8'), context);
-  let result = null;
-  document.addEventListener('ait-gpt-virtualizer-jump-result', event => { result = JSON.parse(event.detail); });
-  document.dispatchEvent(new FakeCustomEvent('ait-gpt-virtualizer-jump', {
-    detail: JSON.stringify({ requestId: 'test-jump', candidates: [37, 36] })
-  }));
-  await new Promise(resolve => setImmediate(resolve));
-  assert.equal(attempted, 37);
+
+  let visible = [40, 41, 42];
+  const numericAttempts = [];
+  const numericController = {
+    options: { count: 88 },
+    getVirtualItems: () => visible.map(index => ({ index })),
+    scrollToIndex(value) {
+      numericAttempts.push(value);
+      if (typeof value === 'number') visible = [value - 1, value, value + 1];
+      // Object arguments are deliberately ignored without throwing.
+    }
+  };
+  let result = await runBridge(numericController, {
+    index: 55, mappingVerified: true, strategy: 'verified-test', observedIndices: [41]
+  });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(result.stateChanged, true);
+  assert.equal(result.signatureAttempt, 1, 'the common numeric signature is attempted first');
+  assert.equal(numericAttempts[0], 55);
+
+  visible = [1, 2, 3];
+  const objectController = {
+    options: { count: 12 },
+    getVirtualItems: () => visible.map(index => ({ index })),
+    scrollToIndex(value) { if (value && typeof value.index === 'number') visible = [value.index]; }
+  };
+  result = await runBridge(objectController, {
+    index: 8, mappingVerified: true, strategy: 'verified-test', observedIndices: [2]
+  });
   assert.equal(result.ok, true);
-  assert.equal(result.method, 'scrollToIndex');
+  assert.equal(result.signatureAttempt, 2, 'object-form controllers use one bounded fallback');
+  assert.deepEqual(visible, [8]);
+
+  const noOpController = {
+    options: { count: 20 },
+    getVirtualItems: () => [{ index: 18 }, { index: 19 }],
+    scrollToIndex() {}
+  };
+  result = await runBridge(noOpController, {
+    index: 4, mappingVerified: true, strategy: 'verified-test', observedIndices: [19]
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, 'scroll-state-unchanged', 'no observable movement must never be reported as success');
+
+  visible = [84, 85, 86];
+  let ratioIndex = null;
+  const countMismatchController = {
+    options: { count: 88 },
+    getVirtualItems: () => visible.map(index => ({ index })),
+    scrollToIndex(index) {
+      if (typeof index === 'number') { ratioIndex = index; visible = [index]; }
+    }
+  };
+  result = await runBridge(countMismatchController, {
+    index: null, mappingVerified: false, targetUserOrder: 28, totalUserTurns: 44,
+    observedIndices: [], targetIds: ['message-28']
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.indexStrategy, 'bounded-ratio-estimate');
+  assert.equal(ratioIndex, 55, '44 user questions may map onto a different 88-item virtual index space');
+
+  visible = [84, 85, 86];
+  let keyedIndex = null;
+  const keyedController = {
+    options: { count: 88, getItemKey: index => index === 54 ? 'message-28' : `other-${index}` },
+    getVirtualItems: () => visible.map(index => ({ index, key: `other-${index}` })),
+    scrollToIndex(index) {
+      if (typeof index === 'number') { keyedIndex = index; visible = [index]; }
+    }
+  };
+  result = await runBridge(keyedController, {
+    index: null, mappingVerified: false, targetUserOrder: 28, totalUserTurns: 44,
+    observedIndices: [], targetIds: ['message-28']
+  });
+  assert.equal(result.ok, true);
+  assert.equal(result.indexStrategy, 'virtual-item-key');
+  assert.equal(keyedIndex, 54, 'stable virtual item keys take precedence over ratio estimates');
+
+  let lateCommandCalls = 0;
+  let diagnosticClock = 0;
+  const lateDiscoveryController = {
+    options: { count: 88 },
+    getVirtualItems: () => [{ index: 40 }],
+    scrollToIndex() { lateCommandCalls++; }
+  };
+  result = await runBridge(lateDiscoveryController, {
+    index: 20, mappingVerified: true, strategy: 'verified-test', observedIndices: [40], deadlineMs: 250
+  }, { performanceNow: () => { diagnosticClock += 200; return diagnosticClock; } });
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, 'cancelled');
+  assert.equal(lateCommandCalls, 0, 'a request whose discovery exceeded its deadline cannot issue a late scroll');
 }
 
-function testAdapterBuildsCompleteMarkersFromPartialDom() {
+async function testAdapterBuildsCompleteMarkersFromPartialDom() {
   const source = fs.readFileSync(path.join(root, 'js/timeline/adapters/chatgpt.js'), 'utf8') + '\nwindow.__TestChatGPTAdapter = ChatGPTAdapter;';
   class SiteAdapter { isPlaceholderSummary(text) { return !text || text === '[图片或文件]'; } }
   const document = new FakeEventTarget();
@@ -297,7 +439,7 @@ function testAdapterBuildsCompleteMarkersFromPartialDom() {
     isConnected: true,
     getAttribute(name) { return name === 'data-turn-id-container' ? 'u2' : null; },
     querySelectorAll() { return []; },
-    querySelector() { return null; },
+    querySelector(selector) { return selector.includes('[data-turn="user"]') ? this : null; },
     hasAttribute() { return false; },
     childElementCount: 0
   };
@@ -356,6 +498,7 @@ function testAdapterBuildsCompleteMarkersFromPartialDom() {
       if (parent) parent.children.push(this);
     }
     getAttribute(name) { return this.attrs.get(name) ?? null; }
+    get childElementCount() { return this.children.length; }
     setAttribute(name, value) { this.attrs.set(name, String(value)); }
     removeAttribute(name) { this.attrs.delete(name); }
     hasAttribute(name) { return this.attrs.has(name); }
@@ -447,6 +590,86 @@ function testAdapterBuildsCompleteMarkersFromPartialDom() {
   assert.equal(modernEntries[2].element, contentOnlyRoot, 'content-search turn without data-turn-key maps by selection message ID');
   modernEntries[1].element = null;
   assert.equal(adapter.resolveTimelineElement(modernEntries[1]), userRoot);
+
+  const firstAnchor = new ModernElement('div', { 'data-turn-key': 'first-anchor', 'data-index': '9' }, main);
+  new ModernElement('div', { 'data-chatgpt-selection-message-id': 'm1' }, firstAnchor);
+  contentOnlyRoot.setAttribute('data-index', '11');
+  const originalModernRoots = adapter._getModernTurnRoots;
+  adapter._getModernTurnRoots = () => [firstAnchor, contentOnlyRoot];
+  adapter._virtualIndexByMessageId.clear();
+  const virtualPlan = adapter._buildVirtualIndexPlan(modernEntries[1]);
+  adapter._getModernTurnRoots = originalModernRoots;
+  assert.equal(virtualPlan.index, 10, 'two real DOM anchors interpolate a local user-round index without API messageIndex');
+  assert.equal(virtualPlan.strategy, 'verified-anchor-interpolation');
+
+  const quotedAssistant = new ModernElement('div', { 'data-turn-key': 'assistant-with-quote' }, main);
+  new ModernElement('div', { 'data-chatgpt-search-message-ids': '["m1"]' }, quotedAssistant);
+  assert.equal(adapter._elementMatchesMarker(quotedAssistant, modernEntries[0]), false,
+    'an assistant source/quote ID must never become the assistant turn identity');
+
+  const shellOnly = new ModernElement('div', { 'data-turn-key': 'u1', 'data-index': '9' }, main);
+  const originalShellRoots = adapter._getModernTurnRoots;
+  adapter._getModernTurnRoots = () => [shellOnly];
+  adapter._virtualIndexByMessageId.clear();
+  assert.equal(adapter.resolveTimelineElement(modernEntries[0]), null, 'an identity-bearing virtual shell is not a rendered-message success');
+  assert.equal(adapter._buildVirtualIndexPlan(modernEntries[0]).strategy, 'target-placeholder-index',
+    'the same shell may still provide an exact virtual index anchor');
+  adapter._getModernTurnRoots = originalShellRoots;
+
+  const longAdapter = new window.__TestChatGPTAdapter();
+  longAdapter._capturedComplete = true;
+  longAdapter._capturedTurns = Array.from({ length: 44 }, (_, index) => ({
+    id: `u${index + 1}`, nodeId: `u${index + 1}`, messageId: `m${index + 1}`,
+    ids: [`u${index + 1}`, `m${index + 1}`], text: index === 27 ? '[图片或文件]' : 'same text',
+    messageIndex: index * 2 + 1, userOrder: index + 1
+  }));
+  const makeTurn = (order, virtualIndex, attachmentOnly = false) => {
+    const root = new ModernElement('div', { 'data-turn-key': `u${order}`, 'data-index': String(virtualIndex) }, main);
+    if (attachmentOnly) new ModernElement('div', { 'data-attachment-kind': 'image' }, root);
+    else new ModernElement('div', { 'data-chatgpt-selection-message-id': `m${order}` }, root);
+    return root;
+  };
+  let mountedWindow = [makeTurn(42, 82), makeTurn(43, 84), makeTurn(44, 86)];
+  longAdapter._getModernTurnRoots = () => mountedWindow;
+  document.querySelectorAll = selector => {
+    if (selector === '[data-turn-key], [data-content-search-turn-key]') return mountedWindow;
+    return mountedWindow.filter(element => element.matches(selector));
+  };
+  let commands = 0;
+  longAdapter._requestVirtualizerJump = async (plan, marker) => {
+    commands++;
+    if (commands === 1) {
+      assert.equal(longAdapter.resolveTimelineElement(marker), null, 'Q28 starts outside the mounted DOM window');
+      assert.equal(longAdapter._findIdentityAnchor(marker), null, 'Q28 has no current DOM placeholder before the command');
+      assert.equal(plan.mappingVerified, false, `far targets do not extrapolate the Q42-Q44 local mapping (${plan.strategy})`);
+      mountedWindow = [makeTurn(27, 52), makeTurn(28, 54, true), makeTurn(29, 56)];
+      assert.equal(longAdapter.resolveTimelineElement(marker), mountedWindow[1], 'attachment-only root is resolvable immediately after virtual mounting');
+      return { ok: true, stateChanged: true, indexStrategy: 'bounded-ratio-estimate', attemptedIndex: 55 };
+    }
+    assert.equal(plan.strategy, 'target-placeholder-index');
+    return { ok: true, stateChanged: false, targetIndexVisible: true, indexStrategy: plan.strategy, attemptedIndex: plan.index };
+  };
+  const q28 = { id: 'chatgpt-u28', sourceId: 'u28', messageId: 'm28', aliasIds: ['u28', 'm28'], userOrder: 28 };
+  const q28Element = await longAdapter.jumpToTimelineMarker(q28, { isCurrent: () => true, conversationContainer: main, taskId: 1 });
+  assert.equal(q28Element, mountedWindow[1], 'Q44 → Q28 mounts and verifies the exact attachment-only user turn');
+  assert.ok(commands <= 2, 'Q44 → Q28 uses at most one progress-gated correction');
+
+  mountedWindow = [makeTurn(1, 0), makeTurn(2, 2), makeTurn(3, 4)];
+  longAdapter._virtualIndexByMessageId.clear();
+  longAdapter._requestVirtualizerJump = async () => {
+    mountedWindow = [makeTurn(42, 82), makeTurn(43, 84), makeTurn(44, 86)];
+    return { ok: true, stateChanged: true, indexStrategy: 'bounded-ratio-estimate', attemptedIndex: 87 };
+  };
+  const q44 = { id: 'chatgpt-u44', sourceId: 'u44', messageId: 'm44', aliasIds: ['u44', 'm44'], userOrder: 44 };
+  assert.equal(await longAdapter.jumpToTimelineMarker(q44, { isCurrent: () => true, conversationContainer: main, taskId: 2 }),
+    mountedWindow[2], 'Q1 → Q44 mounts and verifies the final stable message ID');
+
+  const shortAdapter = new window.__TestChatGPTAdapter();
+  shortAdapter._capturedTurns = longAdapter._capturedTurns.slice(0, 3);
+  const shortMounted = [makeTurn(1, 0), makeTurn(2, 2), makeTurn(3, 4)];
+  shortAdapter._getModernTurnRoots = () => shortMounted;
+  const q2 = { id: 'chatgpt-u2', sourceId: 'u2', messageId: 'm2', aliasIds: ['u2', 'm2'], userOrder: 2 };
+  assert.equal(shortAdapter.resolveTimelineElement(q2), shortMounted[1], 'three-question conversations retain direct DOM jumps');
 }
 
 async function testManagerVirtualMarkerNavigation() {
@@ -462,13 +685,20 @@ async function testManagerVirtualMarkerNavigation() {
   manager.scrollContainer = {};
   manager.conversationContainer = {};
   manager.adapter = {
-    resolveTimelineElement: () => null,
+    platformId: 'chatgpt',
+    resolveTimelineElement: marker => marker.element?.isConnected ? marker.element : null,
     jumpToTimelineMarker: async marker => { bridgeCalls.push(marker.id); return mountedById.get(marker.id); },
     invalidateTimelineNodes: () => {}
   };
   manager.smoothScrollTo = element => { smoothed.push(element.id); };
-  manager._isElementVisibleInScrollContainer = () => true;
+  manager._isElementVisibleInScrollContainer = element => !!element?.isConnected;
   manager.debouncedRecalculateAndRender = () => {};
+  manager.markers = [];
+  manager.updateActiveDotUI = () => {};
+  manager._emitActiveChange = () => {};
+  manager.syncTimelineTrackToMain = () => {};
+  manager.updateVirtualRangeAndRender = () => {};
+  manager.scheduleScrollSync = () => {};
   for (const id of ['chatgpt-u1', 'chatgpt-u50', 'chatgpt-u100']) {
     const marker = { id, element: null, virtual: true };
     assert.equal(await manager.navigateToMarker(marker), true);
@@ -490,9 +720,32 @@ async function testManagerVirtualMarkerNavigation() {
   resolveFirstJump(mountedById.get('chatgpt-u1'));
   assert.equal(await firstNavigation, false, 'an older in-flight navigation must be cancelled');
   assert.deepEqual(smoothed, ['chatgpt-u100'], 'the last rapid click must own the final scroll');
+
+  const reusedMarker = { id: 'chatgpt-reused', messageId: 'reused', element: null, virtual: true };
+  const reusedElement = { isConnected: true, id: reusedMarker.id };
+  manager.adapter.jumpToTimelineMarker = async () => reusedElement;
+  manager.adapter.resolveTimelineElement = marker => marker.element === reusedElement ? null : marker.element;
+  assert.equal(await manager.navigateToMarker(reusedMarker), false,
+    'a connected DOM node that was reused for another message cannot satisfy final verification');
 }
 
-async function testChatGPTFallbackSearchDoesNotOscillate() {
+async function testQuestionListActivationWaitsForNavigation() {
+  const source = fs.readFileSync(path.join(root, 'js/timeline/question-list/index.js'), 'utf8')
+    + '\nwindow.__TestQuestionListPopup = QuestionListPopup;';
+  const window = {};
+  vm.runInContext(source, vm.createContext({ window, document: new FakeEventTarget(), Promise }));
+  const popup = new window.__TestQuestionListPopup();
+  const activations = [];
+  popup._updateActiveItem = id => activations.push(id);
+  const tm = { activeTurnId: 'chatgpt-u2', navigateToMarkerId: async () => false };
+  assert.equal(await popup._navigateMarker(tm, 'chatgpt-u28', 27), false);
+  assert.deepEqual(activations, ['chatgpt-u2'], 'failed list navigation keeps the actually active marker selected');
+  tm.navigateToMarkerId = async id => id === 'chatgpt-u28';
+  assert.equal(await popup._navigateMarker(tm, 'chatgpt-u28', 27), true);
+  assert.deepEqual(activations, ['chatgpt-u2', 'chatgpt-u28'], 'list selection updates only after confirmed navigation');
+}
+
+async function testChatGPTJumpIsBoundedAndNeverScans() {
   const source = fs.readFileSync(path.join(root, 'js/timeline/adapters/chatgpt.js'), 'utf8') + '\nwindow.__TestChatGPTAdapter = ChatGPTAdapter;';
   class SiteAdapter {}
   const context = vm.createContext({
@@ -506,15 +759,23 @@ async function testChatGPTFallbackSearchDoesNotOscillate() {
     get scrollTop() { return positions.at(-1) || 0; },
     set scrollTop(value) { positions.push(value); }
   };
-  const found = { isConnected: true };
-  adapter.resolveTimelineElement = () => scrollContainer.scrollTop >= 540 ? found : null;
+  adapter._capturedTurns = [{ id: 'old', messageId: 'old', ids: ['old'], userOrder: 2 }];
+  adapter.resolveTimelineElement = () => null;
   adapter._requestVirtualizerJump = async () => ({ ok: false, reason: 'virtualizer_api_not_found' });
-  const result = await adapter.jumpToTimelineMarker({ id: 'chatgpt-old', messageIndex: 3, visualN: 0.8 }, {
+  const result = await adapter.jumpToTimelineMarker({ id: 'chatgpt-old', messageId: 'old', userOrder: 2 }, {
     scrollContainer, isCurrent: () => true
   });
-  assert.equal(result, found);
-  assert.deepEqual(positions, [...positions].sort((a, b) => a - b), 'fallback search must move in one direction');
-  assert.equal(positions.at(-1), 540, 'search stops as soon as the target message mounts');
+  assert.equal(result, null);
+  assert.deepEqual(positions, [], 'controller failure must not trigger any full-page scroll scan');
+
+  let commands = 0;
+  adapter._requestVirtualizerJump = async () => { commands++; return { ok: true }; };
+  adapter._waitForMarkerMount = async () => ({ element: null, mountMs: 1, mutations: 0 });
+  assert.equal(await adapter.jumpToTimelineMarker({ id: 'chatgpt-old', messageId: 'old', userOrder: 2 }, {
+    scrollContainer, isCurrent: () => true
+  }), null, 'an accepted command without an exact DOM identity match is failure');
+  assert.equal(commands, 1, 'a failed strategy is not repeated within one navigation task');
+  assert.deepEqual(positions, [], 'false success must not fall back to scroll probing');
 }
 
 async function testCapturedApiTriggersInitialization() {
@@ -572,12 +833,13 @@ async function testCapturedApiTriggersInitialization() {
 (async () => {
   await testCaptureIndexAndIsolation();
   await testPaginationAndCompleteSnapshotProtection();
-  testAdapterBuildsCompleteMarkersFromPartialDom();
+  await testAdapterBuildsCompleteMarkersFromPartialDom();
   await testVirtualizerBridge();
   await testManagerVirtualMarkerNavigation();
-  await testChatGPTFallbackSearchDoesNotOscillate();
+  await testQuestionListActivationWaitsForNavigation();
+  await testChatGPTJumpIsBoundedAndNeverScans();
   await testCapturedApiTriggersInitialization();
-  console.log('PASS: complete/paginated index, live Q101-Q103 optimistic merge, partial protection, stale DOM rejection, branch isolation, and last-click-wins navigation.');
+  console.log('PASS: 100+ turns, Q44→Q28/Q1→Q44 mounting, attachment IDs, both controller signatures, bounded no-op handling, list activation, isolation, and last-click-wins.');
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;

@@ -229,9 +229,8 @@ class QuestionListPopup {
                 window.globalTooltipManager.hide();
             });
 
-            item.addEventListener('click', () => {
-                tm.scrollToIndex(i);
-                this._updateActiveItem(marker.id);
+            item.addEventListener('click', async () => {
+                await this._navigateMarker(tm, marker.id, i);
             });
 
             item.appendChild(idx);
@@ -242,6 +241,15 @@ class QuestionListPopup {
         });
 
         this._listEl.appendChild(frag);
+    }
+
+    async _navigateMarker(tm, markerId, fallbackIndex) {
+        const navigated = typeof tm.navigateToMarkerId === 'function'
+            ? await tm.navigateToMarkerId(markerId)
+            : await Promise.resolve(tm.scrollToIndex(fallbackIndex));
+        if (navigated) this._updateActiveItem(markerId);
+        else this._updateActiveItem(tm.activeTurnId);
+        return navigated;
     }
 
     _updateActiveItem(turnId) {

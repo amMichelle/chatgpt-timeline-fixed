@@ -161,6 +161,7 @@ class TimelineManager {
         this._initialStarredBtnRaf2 = null;
         this._navigationSequence = 0;
         this._scrollAnimationSequence = 0;
+        this._programmaticNavigation = null;
         // 延迟初始化，确保 FolderManager 类已加载
         this._folderManagerInitTimer = setTimeout(() => {
             this._folderManagerInitTimer = null;
@@ -2471,6 +2472,19 @@ class TimelineManager {
         void this.navigateToMarker(marker);
         return true;
     }
+
+    async scrollToIndexAsync(index) {
+        if (!this.markers?.length) return false;
+        const targetIndex = index < 0 ? this.markers.length + index : index;
+        if (targetIndex < 0 || targetIndex >= this.markers.length) return false;
+        const markerId = this.markers[targetIndex]?.id;
+        return markerId ? this.navigateToMarkerId(markerId) : false;
+    }
+
+    async navigateToMarkerId(markerId, duration = 600) {
+        const marker = this.markers?.find(item => item.id === markerId) || this.markerMap?.get(markerId);
+        return marker ? this.navigateToMarker(marker, duration) : false;
+    }
     
     /**
      * ✅ 对外 API：滚动到最后一个节点（底部）
@@ -2490,13 +2504,23 @@ class TimelineManager {
     
     async navigateToMarker(marker, duration = 600) {
         if (!marker || this._destroyed) return false;
+        if (this.adapter.platformId === 'chatgpt') this.adapter.cancelPendingTimelineJump?.('new-navigation');
         this._navigationSequence = (Number.isFinite(this._navigationSequence) ? this._navigationSequence : 0) + 1;
         const navigationSequence = this._navigationSequence;
         const isCurrent = () => !this._destroyed && navigationSequence === this._navigationSequence;
+        const isChatGPT = this.adapter.platformId === 'chatgpt';
+        if (isChatGPT) {
+            this._programmaticNavigation = { sequence: navigationSequence, markerId: marker.id, startedAt: Date.now() };
+            this.pendingActiveId = null;
+            if (this.activeChangeTimer) {
+                clearTimeout(this.activeChangeTimer);
+                this.activeChangeTimer = null;
+            }
+        }
         const scrollTopBefore = this.scrollContainer?.scrollTop || 0;
         window.AITGPTDiagnostics?.log('timeline.navigation', {
-            stage: 'start', markerId: marker.id || '',
-            messageId: marker.messageId || marker.sourceId || '',
+            stage: 'click-received', taskId: navigationSequence, userOrder: marker.userOrder || 0,
+            identityAvailable: !!(marker.messageId || marker.sourceId || marker.aliasIds?.length),
             hadConnectedElement: !!marker.element?.isConnected,
             scrollTopBefore, scrollContainerFallback: !!this.isScrollContainerFallback,
             scrollTag: this.scrollContainer?.tagName || '',
@@ -2504,61 +2528,107 @@ class TimelineManager {
             clientHeight: this.scrollContainer?.clientHeight || 0,
             navigationSequence
         });
-        let targetElement = this.adapter.resolveTimelineElement?.(marker)
-            || null;
-        window.AITGPTDiagnostics?.log('timeline.navigation', {
-            stage: 'direct-match', markerId: marker.id || '',
-            found: !!targetElement, targetTurnKey: targetElement?.getAttribute?.('data-turn-key') || '',
-            targetSelectionId: targetElement?.querySelector?.('[data-chatgpt-selection-message-id]')?.getAttribute('data-chatgpt-selection-message-id') || ''
-        });
-        if (!targetElement && this.adapter.jumpToTimelineMarker) {
-            targetElement = await this.adapter.jumpToTimelineMarker(marker, {
-                scrollContainer: this.scrollContainer,
-                conversationContainer: this.conversationContainer,
-                isCurrent
-            });
-        }
-        if (!isCurrent() || !targetElement?.isConnected) {
+        let succeeded = false;
+        try {
+            let targetElement = this.adapter.resolveTimelineElement?.(marker) || null;
             window.AITGPTDiagnostics?.log('timeline.navigation', {
-                stage: isCurrent() ? 'target-not-mounted' : 'cancelled',
-                markerId: marker.id || '', navigationSequence
+                stage: 'direct-match', userOrder: marker.userOrder || 0, found: !!targetElement
             });
-            return false;
+            if (!targetElement && this.adapter.jumpToTimelineMarker) {
+                targetElement = await this.adapter.jumpToTimelineMarker(marker, {
+                    scrollContainer: this.scrollContainer,
+                    conversationContainer: this.conversationContainer,
+                    isCurrent,
+                    taskId: navigationSequence
+                });
+            }
+            if (!isCurrent() || !targetElement?.isConnected) {
+                window.AITGPTDiagnostics?.log('timeline.navigation', {
+                    stage: isCurrent() ? 'target-not-mounted' : 'cancelled',
+                    userOrder: marker.userOrder || 0, navigationSequence
+                });
+                return false;
+            }
+            marker.element = targetElement;
+            marker.virtual = false;
+            const scrolled = await this.smoothScrollTo(targetElement,
+                isChatGPT ? 0 : duration, { isCurrent });
+            if (!isCurrent()) return false;
+            const resolved = this.adapter.resolveTimelineElement?.(marker) || null;
+            // ChatGPT virtualized nodes are reusable. A connected old element
+            // is not proof after scrolling; the stable message ID must resolve
+            // again from the current DOM before success can be reported.
+            const verifiedElement = isChatGPT ? resolved : (resolved?.isConnected ? resolved : targetElement);
+            let visible = this._isElementVisibleInScrollContainer(verifiedElement);
+            if (!visible && verifiedElement?.isConnected && this.scrollContainer) {
+                const containerRect = this.scrollContainer.getBoundingClientRect();
+                const targetRect = this._getMessageRect(verifiedElement);
+                const scrollOffset = this.adapter?.getScrollOffset?.() ?? 30;
+                this.scrollContainer.scrollTop += targetRect.top - containerRect.top - scrollOffset;
+                await new Promise(resolve => requestAnimationFrame(() => resolve()));
+                if (!isCurrent()) return false;
+                const resolvedAfterCorrection = this.adapter.resolveTimelineElement?.(marker) || null;
+                if (isChatGPT && resolvedAfterCorrection !== verifiedElement) return false;
+                visible = this._isElementVisibleInScrollContainer(verifiedElement);
+            }
+            window.AITGPTDiagnostics?.log('timeline.navigation', {
+                stage: visible ? 'final-visible-verified' : 'final-visible-failed',
+                taskId: navigationSequence, userOrder: marker.userOrder || 0,
+                identityMatched: !!resolved, scrolled: !!scrolled, visible,
+                scrollTopBefore, scrollTopAfter: this.scrollContainer?.scrollTop || 0,
+                navigationSequence
+            });
+            if (!visible) return false;
+            marker.element = verifiedElement;
+            this.adapter.invalidateTimelineNodes?.('virtualized-jump-resolved');
+            this.debouncedRecalculateAndRender();
+            succeeded = true;
+            window.AITGPTDiagnostics?.log('timeline.navigation', {
+                stage: 'navigation-completed', taskId: navigationSequence,
+                userOrder: marker.userOrder || 0, elapsedMs: Date.now() - (this._programmaticNavigation?.startedAt || Date.now())
+            });
+            return true;
+        } finally {
+            if (isChatGPT && this._programmaticNavigation?.sequence === navigationSequence) {
+                this._programmaticNavigation = null;
+                if (succeeded && isCurrent()) {
+                    const previousId = this.activeTurnId;
+                    this.activeTurnId = marker.id;
+                    this.pendingActiveId = null;
+                    this.updateActiveDotUI();
+                    if (previousId !== marker.id) this._emitActiveChange(previousId, marker.id);
+                    this.syncTimelineTrackToMain();
+                    this.updateVirtualRangeAndRender();
+                    setTimeout(() => {
+                        if (this._destroyed || navigationSequence !== this._navigationSequence) return;
+                        const settledElement = this.adapter.resolveTimelineElement?.(marker) || null;
+                        const settledVisible = this._isElementVisibleInScrollContainer(settledElement);
+                        window.AITGPTDiagnostics?.log('timeline.navigation', {
+                            stage: settledVisible ? 'navigation-settle-verified' : 'navigation-displaced',
+                            taskId: navigationSequence,
+                            userOrder: marker.userOrder || 0,
+                            reason: settledVisible ? '' : 'page-scroll-after-success'
+                        });
+                    }, 160);
+                } else if (isCurrent()) {
+                    this.scheduleScrollSync();
+                }
+            }
+            if (!succeeded && !isCurrent()) {
+                window.AITGPTDiagnostics?.log('timeline.navigation', {
+                    stage: 'navigation-cancelled', taskId: navigationSequence,
+                    userOrder: marker.userOrder || 0, reason: 'superseded'
+                });
+            }
         }
-        marker.element = targetElement;
-        marker.virtual = false;
-        const scrolled = await this.smoothScrollTo(targetElement,
-            this.adapter.platformId === 'chatgpt' ? 0 : duration, { isCurrent });
-        if (!isCurrent()) return false;
-        const resolved = this.adapter.resolveTimelineElement?.(marker) || null;
-        const verifiedElement = resolved?.isConnected ? resolved : targetElement;
-        let visible = this._isElementVisibleInScrollContainer(verifiedElement);
-        if (!visible && verifiedElement?.isConnected && this.scrollContainer) {
-            const containerRect = this.scrollContainer.getBoundingClientRect();
-            const targetRect = this._getMessageRect(verifiedElement);
-            const scrollOffset = this.adapter?.getScrollOffset?.() ?? 30;
-            this.scrollContainer.scrollTop += targetRect.top - containerRect.top - scrollOffset;
-            await new Promise(resolve => requestAnimationFrame(() => resolve()));
-            visible = this._isElementVisibleInScrollContainer(verifiedElement);
-        }
-        window.AITGPTDiagnostics?.log('timeline.navigation', {
-            stage: 'verified', markerId: marker.id || '',
-            messageId: marker.messageId || marker.sourceId || '',
-            domMatched: !!resolved, scrolled: !!scrolled, visible,
-            scrollTopBefore, scrollTopAfter: this.scrollContainer?.scrollTop || 0,
-            navigationSequence
-        });
-        if (!visible) return false;
-        marker.element = verifiedElement;
-        this.adapter.invalidateTimelineNodes?.('virtualized-jump-resolved');
-        this.debouncedRecalculateAndRender();
-        return true;
     }
 
     _isElementVisibleInScrollContainer(targetElement) {
         if (!targetElement?.isConnected || !this.scrollContainer) return false;
         const containerRect = this.scrollContainer.getBoundingClientRect();
         const targetRect = this._getMessageRect(targetElement);
+        if (this.adapter?.platformId === 'chatgpt'
+            && !(targetRect.height > 0 || targetRect.bottom > targetRect.top)) return false;
         return targetRect.bottom > containerRect.top + 4
             && targetRect.top < containerRect.bottom - 4;
     }
@@ -3443,6 +3513,7 @@ class TimelineManager {
         if (this.scrollRafId !== null) return;
         this.scrollRafId = requestAnimationFrame(() => {
             this.scrollRafId = null;
+            if (this.adapter?.platformId === 'chatgpt' && this._programmaticNavigation) return;
             
             // 节流：最多每秒重算一次节点位置，避免每帧触发强制重排
             const now = Date.now();
@@ -3686,6 +3757,7 @@ class TimelineManager {
      */
     computeActiveByScroll() {
         if (!this.scrollContainer || this.markers.length === 0) return;
+        if (this.adapter?.platformId === 'chatgpt' && this._programmaticNavigation) return;
         
         const isReverseScroll = typeof this.adapter.isReverseScroll === 'function' && this.adapter.isReverseScroll();
         
@@ -3823,6 +3895,10 @@ class TimelineManager {
 
     destroy() {
         this._destroyed = true;
+        this.adapter.cancelPendingTimelineJump?.('manager-destroyed');
+        this._navigationSequence = (this._navigationSequence || 0) + 1;
+        this._scrollAnimationSequence = (this._scrollAnimationSequence || 0) + 1;
+        this._programmaticNavigation = null;
         this._folderManagerInitTimer = TimelineUtils.clearTimerSafe(this._folderManagerInitTimer);
         this._initialRenderTimer = TimelineUtils.clearTimerSafe(this._initialRenderTimer);
         this._initialSecondRenderTimer = TimelineUtils.clearTimerSafe(this._initialSecondRenderTimer);

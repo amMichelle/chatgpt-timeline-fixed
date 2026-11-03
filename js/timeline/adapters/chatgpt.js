@@ -33,7 +33,10 @@ class ChatGPTAdapter extends SiteAdapter {
         this._turnRolesDirty = true;
         this._usesVirtualizedTurnSelector = false;
         this._usesModernTurnSelector = false;
-        this._virtualIndexOffset = null;
+        // Exact DOM-observed virtual indices keyed by stable message aliases.
+        // API message indexes and virtual item indexes are separate domains.
+        this._virtualIndexByMessageId = new Map();
+        this._activeVirtualizerRequestId = null;
     }
 
     /**
@@ -113,7 +116,7 @@ class ChatGPTAdapter extends SiteAdapter {
         if (nextSignature !== this._capturedOrderSignature) {
             changedCount++;
             this._domOnlyTurns = [];
-            this._virtualIndexOffset = null;
+            this._virtualIndexByMessageId.clear();
         }
         if (completenessChanged) changedCount++;
         this._capturedTurns = nextTurns;
@@ -182,8 +185,7 @@ class ChatGPTAdapter extends SiteAdapter {
     static MODERN_STRONG_ID_ATTRIBUTES = [
         'data-turn-key',
         'data-content-search-turn-key',
-        'data-chatgpt-selection-message-id',
-        'data-chatgpt-search-message-ids'
+        'data-chatgpt-selection-message-id'
     ];
     static MODERN_WEAK_ID_ATTRIBUTES = [
         'data-dil-source-message-id',
@@ -242,7 +244,7 @@ class ChatGPTAdapter extends SiteAdapter {
             this._capturedVersion = 0;
             this._capturedPendingUserIds.clear();
             this._domOnlyTurns = [];
-            this._virtualIndexOffset = null;
+            this._virtualIndexByMessageId.clear();
         } else if (this._capturedComplete && this._capturedTextIds.size > 0) {
             return; // 只有已确认完整的同一对话索引才能停止重拉
         }
@@ -346,19 +348,30 @@ class ChatGPTAdapter extends SiteAdapter {
     }
 
     _getModernRoleIdCandidates(root) {
-        const strongIds = this._getAttributeIdCandidates(root, [
-            'data-turn-key',
-            'data-content-search-turn-key',
-            'data-chatgpt-selection-message-id'
-        ]);
-        const selectionIds = this._getAttributeIdCandidates(root, ['data-chatgpt-selection-message-id']);
-        // Search-message lists can contain source/related message IDs on an
-        // assistant response. Use them only when no selection ID exists.
-        if (!selectionIds.length) {
-            this._getAttributeIdCandidates(root, ['data-chatgpt-search-message-ids'])
-                .forEach(id => { if (!strongIds.includes(id)) strongIds.push(id); });
+        if (!root) return [];
+        const ids = [];
+        const add = value => this._parseDomIdValue(value).forEach(id => {
+            if (!ids.includes(id)) ids.push(id);
+        });
+        ['data-turn-key', 'data-content-search-turn-key', 'data-chatgpt-selection-message-id']
+            .forEach(name => add(root.getAttribute?.(name)));
+        Array.from(root.querySelectorAll?.('[data-chatgpt-selection-message-id]') || []).forEach(node => {
+            const owner = this._getOwningModernTurnRoot(node);
+            if (owner === root) add(node.getAttribute?.('data-chatgpt-selection-message-id'));
+        });
+        // Search-message IDs describe sources/quotes and commonly put a user
+        // message ID inside an assistant response. They are never identities.
+        return ids;
+    }
+
+    _getOwningModernTurnRoot(node) {
+        let owner = node?.closest?.(ChatGPTAdapter.MODERN_TURN_SELECTOR) || null;
+        while (owner) {
+            const parentOwner = owner.parentElement?.closest?.(ChatGPTAdapter.MODERN_TURN_SELECTOR);
+            if (!parentOwner) break;
+            owner = parentOwner;
         }
-        return strongIds;
+        return owner;
     }
 
     _markModernTurnRoles() {
@@ -600,7 +613,26 @@ class ChatGPTAdapter extends SiteAdapter {
         const elementIds = element.matches?.(ChatGPTAdapter.MODERN_TURN_SELECTOR)
             ? this._getModernRoleIdCandidates(element)
             : this._getDomIdCandidates(element);
-        return elementIds.some(id => ids.includes(id));
+        if (!elementIds.some(id => ids.includes(id))) return false;
+        const assistantEvidence = element.matches?.('[data-turn="assistant"], [data-message-author-role="assistant"]')
+            || element.querySelector?.('[data-turn="assistant"], [data-message-author-role="assistant"]');
+        const userEvidence = element.matches?.('[data-turn="user"], [data-message-author-role="user"], [data-ait-turn="user"]')
+            || element.querySelector?.('[data-turn="user"], [data-message-author-role="user"]');
+        return !assistantEvidence || !!userEvidence;
+    }
+
+    _isRenderedMessageElement(element) {
+        if (!element?.isConnected) return false;
+        if (element.matches?.('[data-chatgpt-selection-message-id], [data-content-search-turn-key], [data-message-id], [data-turn="user"], [data-message-author-role="user"]')) return true;
+        if (element.querySelector?.('[data-chatgpt-selection-message-id], [data-content-search-turn-key], [data-message-id], [data-turn="user"], [data-message-author-role="user"]')) return true;
+        // Attachment-only messages may omit text/selection nodes, but their
+        // rendered media or file controls remain. Generic child DIVs are not
+        // sufficient because virtualized shells may contain spacer children.
+        return !!element.querySelector?.([
+            'img', 'video', 'audio', 'canvas', 'button', 'a', '[role="button"]',
+            '[data-attachment-kind]', '[data-file-id]', '[data-asset-id]',
+            '[data-testid*="attachment"]', '[data-testid*="file"]', '[data-testid*="image"]'
+        ].join(',')) || (element.childElementCount || 0) > 0;
     }
 
     _readDomVirtualIndex(element) {
@@ -622,17 +654,17 @@ class ChatGPTAdapter extends SiteAdapter {
         return null;
     }
 
-    _calibrateVirtualIndex(element, marker) {
+    _recordVirtualIndex(element, marker) {
         const domIndex = this._readDomVirtualIndex(element);
-        const messageBase = Number.isFinite(marker?.messageIndex) ? marker.messageIndex - 1 : null;
-        if (!Number.isFinite(domIndex) || !Number.isFinite(messageBase)) return;
-        const offset = domIndex - messageBase;
-        if (Math.abs(offset) <= 100) this._virtualIndexOffset = offset;
+        if (!Number.isFinite(domIndex)) return null;
+        this._getMarkerAliasIds(marker).forEach(id => this._virtualIndexByMessageId.set(id, domIndex));
+        return domIndex;
     }
 
-    resolveTimelineElement(marker) {
-        if (this._elementMatchesMarker(marker?.element, marker)) {
-            this._calibrateVirtualIndex(marker.element, marker);
+    resolveTimelineElement(marker, { allowPlaceholder = false } = {}) {
+        if (this._elementMatchesMarker(marker?.element, marker)
+            && (allowPlaceholder || this._isRenderedMessageElement(marker.element))) {
+            this._recordVirtualIndex(marker.element, marker);
             return marker.element;
         }
         if (marker) marker.element = null;
@@ -648,11 +680,25 @@ class ChatGPTAdapter extends SiteAdapter {
                 : this._getDomIdCandidates(candidate);
             if (candidateIds.some(id => id && ids.includes(id))) {
                 const matched = candidate.closest('[data-turn-key][data-ait-turn="user"], [data-content-search-turn-key][data-ait-turn="user"], [data-turn-id-container][data-ait-turn="user"], [data-turn="user"][data-turn-id]') || candidate;
-                this._calibrateVirtualIndex(matched, marker);
-                return matched;
+                if (this._elementMatchesMarker(matched, marker)
+                    && (allowPlaceholder || this._isRenderedMessageElement(matched))) {
+                    this._recordVirtualIndex(matched, marker);
+                    return matched;
+                }
             }
         }
         return null;
+    }
+
+    _findIdentityAnchor(marker) {
+        if (this._elementMatchesMarker(marker?.element, marker)) return marker.element;
+        const ids = this._getMarkerAliasIds(marker);
+        if (!ids.length) return null;
+        const candidates = [
+            ...this._getModernTurnRoots(),
+            ...Array.from(document.querySelectorAll?.('[data-turn-id-container], [data-turn-id], [data-message-id]') || [])
+        ];
+        return candidates.find(candidate => this._elementMatchesMarker(candidate, marker)) || null;
     }
 
     getActiveTimelineMarkerId(scrollContainer, markers, activateAhead = 120) {
@@ -680,12 +726,131 @@ class ChatGPTAdapter extends SiteAdapter {
         return active || firstMounted;
     }
 
-    _requestVirtualizerJump(candidates, timeoutMs = 700) {
+    _buildVirtualIndexPlan(marker) {
+        const targetAliases = this._getMarkerAliasIds(marker);
+        const exact = targetAliases.map(id => this._virtualIndexByMessageId.get(id)).find(Number.isFinite);
+        if (Number.isFinite(exact)) {
+            return { index: exact, strategy: 'cached-exact-dom-index', mappingVerified: true,
+                observedIndices: [], targetIds: targetAliases };
+        }
+
+        const targetAnchor = this._findIdentityAnchor(marker);
+        const targetAnchorIndex = this._readDomVirtualIndex(targetAnchor);
+        if (Number.isFinite(targetAnchorIndex)) {
+            targetAliases.forEach(id => this._virtualIndexByMessageId.set(id, targetAnchorIndex));
+            return { index: targetAnchorIndex, strategy: 'target-placeholder-index', mappingVerified: true,
+                observedIndices: [targetAnchorIndex], targetIds: targetAliases };
+        }
+
+        const turnByAlias = new Map();
+        this._capturedTurns.forEach(turn => {
+            [turn.id, turn.nodeId, turn.messageId, ...(turn.ids || [])].filter(Boolean)
+                .forEach(id => turnByAlias.set(id, turn));
+        });
+        const anchors = [];
+        const roots = [
+            ...this._getModernTurnRoots(),
+            ...Array.from(document.querySelectorAll?.('[data-turn-id-container], [data-turn-id], [data-message-id]') || [])
+        ];
+        const seen = new Set();
+        roots.forEach(element => {
+            if (!element?.isConnected || seen.has(element)) return;
+            seen.add(element);
+            const virtualIndex = this._readDomVirtualIndex(element);
+            if (!Number.isFinite(virtualIndex)) return;
+            const ids = element.matches?.(ChatGPTAdapter.MODERN_TURN_SELECTOR)
+                ? this._getModernRoleIdCandidates(element) : this._getDomIdCandidates(element, { includeWeak: false });
+            const turn = ids.map(id => turnByAlias.get(id)).find(Boolean);
+            if (!turn || !Number.isFinite(turn.userOrder)) return;
+            const aliases = [turn.id, turn.nodeId, turn.messageId, ...(turn.ids || [])].filter(Boolean);
+            aliases.forEach(id => this._virtualIndexByMessageId.set(id, virtualIndex));
+            anchors.push({ virtualIndex, userOrder: turn.userOrder });
+        });
+
+        const cachedAfterObservation = targetAliases.map(id => this._virtualIndexByMessageId.get(id)).find(Number.isFinite);
+        if (Number.isFinite(cachedAfterObservation)) {
+            return { index: cachedAfterObservation, strategy: 'exact-dom-index', mappingVerified: true,
+                observedIndices: anchors.map(anchor => anchor.virtualIndex), targetIds: targetAliases };
+        }
+        const userOrder = Number(marker?.userOrder);
+        const sortedAnchors = Array.from(new Map(anchors
+            .sort((a, b) => a.userOrder - b.userOrder)
+            .map(anchor => [anchor.userOrder, anchor])).values());
+        if (Number.isFinite(userOrder) && userOrder > 0) {
+            for (let index = 0; index < sortedAnchors.length - 1; index++) {
+                const left = sortedAnchors[index];
+                const right = sortedAnchors[index + 1];
+                const orderSpan = right.userOrder - left.userOrder;
+                const indexSpan = right.virtualIndex - left.virtualIndex;
+                if (orderSpan <= 0 || indexSpan <= 0) continue;
+                const slope = indexSpan / orderSpan;
+                const inside = userOrder >= left.userOrder && userOrder <= right.userOrder;
+                const distance = userOrder < left.userOrder ? left.userOrder - userOrder
+                    : userOrder > right.userOrder ? userOrder - right.userOrder : 0;
+                if (!inside && distance > 3) continue;
+                const projected = left.virtualIndex + (userOrder - left.userOrder) * slope;
+                if (Math.abs(projected - Math.round(projected)) > 0.001 || slope > 4) continue;
+                return {
+                    index: Math.round(projected),
+                    strategy: inside ? 'verified-anchor-interpolation' : 'bounded-local-extrapolation',
+                    mappingVerified: true,
+                    observedIndices: sortedAnchors.map(anchor => anchor.virtualIndex),
+                    targetIds: targetAliases
+                };
+            }
+        }
+
+        // No API-index assumption is made here. The page-world bridge first
+        // tries virtual item keys; only then may it use its own item count for
+        // one bounded ratio estimate followed by strict DOM-ID verification.
+        return {
+            index: null,
+            strategy: 'virtual-item-key-or-bounded-ratio',
+            mappingVerified: false,
+            observedIndices: anchors.map(anchor => anchor.virtualIndex),
+            targetIds: targetAliases
+        };
+    }
+
+    _navigationDiagnostic(stage, marker, context = {}, data = {}) {
+        window.AITGPTDiagnostics?.log('timeline.navigation', {
+            stage,
+            taskId: context.taskId || 0,
+            userOrder: marker?.userOrder || 0,
+            ...data
+        });
+    }
+
+    cancelPendingTimelineJump(reason = 'superseded') {
+        const requestId = this._activeVirtualizerRequestId;
+        document.dispatchEvent(new CustomEvent('ait-gpt-virtualizer-jump-cancel', {
+            detail: JSON.stringify(requestId ? { requestId, all: true, reason } : { all: true, reason })
+        }));
+        this._activeVirtualizerRequestId = null;
+    }
+
+    _requestVirtualizerJump(plan, marker, context = {}, timeoutMs = 1300) {
         const requestId = `ait-timeline-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        this._activeVirtualizerRequestId = requestId;
+        const issuedAt = Date.now();
+        this._navigationDiagnostic('virtualizer-discovery-start', marker, context, { strategy: plan.strategy });
+        this._navigationDiagnostic('bridge-command-issued', marker, context, { strategy: plan.strategy });
         const resultPromise = new Promise(resolve => {
             const timeout = setTimeout(() => {
                 document.removeEventListener('ait-gpt-virtualizer-jump-result', handler);
-                resolve(null);
+                document.dispatchEvent(new CustomEvent('ait-gpt-virtualizer-jump-cancel', {
+                    detail: JSON.stringify({ requestId })
+                }));
+                if (this._activeVirtualizerRequestId === requestId) this._activeVirtualizerRequestId = null;
+                const result = { ok: false, reason: 'bridge-timeout', failureStage: 'bridge', bridgeMs: Date.now() - issuedAt };
+                this._navigationDiagnostic('virtualizer-discovery-end', marker, context, {
+                    found: false, elapsedMs: result.bridgeMs, reason: result.reason
+                });
+                this._navigationDiagnostic('virtualizer-validation-result', marker, context, {
+                    passed: false, reason: result.reason
+                });
+                this._navigationDiagnostic('bridge-command-result', marker, context, result);
+                resolve(result);
             }, timeoutMs);
             const handler = event => {
                 let result = null;
@@ -693,87 +858,155 @@ class ChatGPTAdapter extends SiteAdapter {
                 if (result?.requestId !== requestId) return;
                 clearTimeout(timeout);
                 document.removeEventListener('ait-gpt-virtualizer-jump-result', handler);
+                if (this._activeVirtualizerRequestId === requestId) this._activeVirtualizerRequestId = null;
+                this._navigationDiagnostic('virtualizer-discovery-end', marker, context, {
+                    found: result?.failureStage !== 'discovery',
+                    elapsedMs: Math.round(result?.discoveryMs || 0),
+                    scannedObjects: result?.scannedObjects || 0,
+                    cached: !!result?.cachedController
+                });
+                this._navigationDiagnostic('virtualizer-validation-result', marker, context, {
+                    passed: !!result?.controllerValidated,
+                    strategy: result?.ownershipStrategy || '',
+                    reason: result?.failureStage === 'validation' ? result?.reason || 'validation-failed' : ''
+                });
+                this._navigationDiagnostic('bridge-command-result', marker, context, {
+                    ok: !!result?.ok,
+                    reason: result?.reason || '',
+                    failureStage: result?.failureStage || '',
+                    strategy: result?.indexStrategy || plan.strategy,
+                    discoveryMs: Math.round(result?.discoveryMs || 0),
+                    bridgeMs: Math.round(result?.bridgeMs || (Date.now() - issuedAt)),
+                    stateChanged: !!result?.stateChanged
+                });
                 resolve(result);
             };
             document.addEventListener('ait-gpt-virtualizer-jump-result', handler);
         });
         document.dispatchEvent(new CustomEvent('ait-gpt-virtualizer-jump', {
-            detail: JSON.stringify({ requestId, candidates })
+            detail: JSON.stringify({
+                requestId,
+                index: Number.isFinite(plan.index) ? plan.index : null,
+                strategy: plan.strategy,
+                mappingVerified: plan.mappingVerified === true,
+                observedIndices: Array.from(new Set(plan.observedIndices || [])).slice(0, 20),
+                targetIds: Array.from(new Set(plan.targetIds || [])).slice(0, 8),
+                targetUserOrder: marker?.userOrder || 0,
+                totalUserTurns: this._capturedTurns.length,
+                taskId: context.taskId || 0,
+                deadlineMs: Math.max(250, timeoutMs - 100)
+            })
         }));
         return resultPromise;
+    }
+
+    _waitForMarkerMount(marker, context, timeoutMs = 750) {
+        const isCurrent = typeof context.isCurrent === 'function' ? context.isCurrent : () => true;
+        const startedAt = Date.now();
+        const immediate = this.resolveTimelineElement(marker);
+        if (immediate) return Promise.resolve({ element: immediate, mountMs: 0, mutations: 0 });
+        return new Promise(resolve => {
+            let settled = false;
+            let mutations = 0;
+            let observer = null;
+            const finish = element => {
+                if (settled) return;
+                settled = true;
+                clearTimeout(timer);
+                try { observer?.disconnect(); } catch {}
+                resolve({ element: element || null, mountMs: Date.now() - startedAt, mutations });
+            };
+            const check = () => {
+                if (!isCurrent()) { finish(null); return; }
+                const element = this.resolveTimelineElement(marker);
+                if (!element) return;
+                const settle = () => finish(this.resolveTimelineElement(marker));
+                if (typeof requestAnimationFrame === 'function') requestAnimationFrame(settle);
+                else settle();
+            };
+            const timer = setTimeout(() => finish(isCurrent() ? this.resolveTimelineElement(marker) : null), timeoutMs);
+            if (typeof MutationObserver === 'function') {
+                observer = new MutationObserver(records => {
+                    mutations += records?.length || 1;
+                    check();
+                });
+                try {
+                    observer.observe(context.conversationContainer || document.body || document.documentElement,
+                        { childList: true, subtree: true, attributes: true,
+                            attributeFilter: ['data-turn-key', 'data-content-search-turn-key', 'data-chatgpt-selection-message-id', 'data-turn-id-container', 'data-message-id'] });
+                } catch { observer = null; }
+            }
+            check();
+        });
     }
 
     async jumpToTimelineMarker(marker, context = {}) {
         const isCurrent = typeof context.isCurrent === 'function' ? context.isCurrent : () => true;
         if (!isCurrent()) return null;
+        this._navigationDiagnostic('marker-resolved', marker, context, {
+            identityAvailable: this._getMarkerAliasIds(marker).length > 0
+        });
         const direct = this.resolveTimelineElement(marker);
+        this._navigationDiagnostic(direct ? 'direct-dom-hit' : 'direct-dom-miss', marker, context);
         if (direct) return direct;
-        const rawBase = Number.isFinite(marker?.messageIndex) ? marker.messageIndex - 1 : null;
-        const base = Number.isFinite(rawBase) && Number.isFinite(this._virtualIndexOffset)
-            ? rawBase + this._virtualIndexOffset : rawBase;
-        if (!Number.isFinite(base)) return null;
-        // One index request first. The old nearby-index loop visibly bounced
-        // through many positions before falling back to a second search.
-        const candidates = [Math.max(0, Math.trunc(base))];
-
-        // A successful virtualizer call only means the command was accepted;
-        // verify the requested message ID after every nearby index candidate.
-        for (const candidate of candidates) {
-            if (!isCurrent()) return null;
-            const result = await this._requestVirtualizerJump([candidate]);
-            if (!isCurrent()) return null;
-            if (!result?.ok) {
-                window.AITGPTDiagnostics?.log('timeline.navigation', {
-                    stage: 'virtualizer-unavailable', markerId: marker?.id || '',
-                    attemptedIndex: candidate, reason: result?.reason || 'no-response'
-                });
-                break;
-            }
-            await new Promise(resolve => setTimeout(resolve, 80));
-            if (!isCurrent()) return null;
-            const mounted = this.resolveTimelineElement(marker);
-            window.AITGPTDiagnostics?.log('timeline.navigation', {
-                stage: 'virtualizer-attempt', markerId: marker?.id || '',
-                messageId: marker?.messageId || marker?.sourceId || '', attemptedIndex: candidate,
-                virtualizerOk: !!result?.ok, domMatched: !!mounted
+        const plan = this._buildVirtualIndexPlan(marker);
+        if (!plan) {
+            this._navigationDiagnostic('virtual-index-plan', marker, context, { ok: false, reason: 'identity-unavailable' });
+            return null;
+        }
+        this._navigationDiagnostic('virtual-index-plan', marker, context, {
+            ok: true, strategy: plan.strategy, mappingVerified: plan.mappingVerified === true,
+            hasExactIndex: Number.isFinite(plan.index)
+        });
+        if (!isCurrent()) return null;
+        const result = await this._requestVirtualizerJump(plan, marker, context);
+        if (!isCurrent()) return null;
+        if (!result?.ok) {
+            this._navigationDiagnostic(result?.reason === 'cancelled' ? 'navigation-cancelled' : 'scroll-state-unchanged', marker, context, {
+                strategy: result?.indexStrategy || plan.strategy,
+                reason: result?.reason || 'bridge-no-response', failureStage: result?.failureStage || 'bridge'
             });
-            if (mounted) return mounted;
+            return null;
+        }
+        this._navigationDiagnostic(result.stateChanged ? 'scroll-state-changed' : 'scroll-state-unchanged', marker, context, {
+            strategy: result.indexStrategy || plan.strategy, reason: result.targetIndexVisible ? 'target-index-visible' : ''
+        });
+        const firstWait = await this._waitForMarkerMount(marker, context, result.stateChanged ? 900 : 650);
+        if (!isCurrent()) return null;
+        this._navigationDiagnostic(firstWait.element ? 'target-mount-detected' : 'target-mount-timeout', marker, context, {
+            strategy: result.indexStrategy || plan.strategy, mountMs: firstWait.mountMs, mutations: firstWait.mutations
+        });
+        if (firstWait.element) {
+            this._navigationDiagnostic('target-identity-verified', marker, context, { mountMs: firstWait.mountMs });
+            return firstWait.element;
         }
 
-        const scrollContainer = context.scrollContainer;
-        if (scrollContainer && !this.resolveTimelineElement(marker)) {
-            const maxTop = Math.max(0, scrollContainer.scrollHeight - scrollContainer.clientHeight);
-            // When the page virtualizer cannot be found, scan in one direction.
-            // The previous ratio +/- distance sweep alternated above and below
-            // the estimate, causing the reported repeated up/down movement.
-            const step = Math.max(240, Math.round(scrollContainer.clientHeight * 0.9));
-            let checked = 0;
-            for (let position = 0; position <= maxTop + step; position += step) {
+        // One progress-gated local correction is allowed after a coarse jump.
+        // It must be backed by newly observed DOM indices and use a different
+        // exact index; no page scan or alternating probe is performed.
+        if (result.stateChanged && !plan.mappingVerified) {
+            const correction = this._buildVirtualIndexPlan(marker);
+            if (correction?.mappingVerified && Number.isFinite(correction.index)
+                && correction.index !== result.attemptedIndex && isCurrent()) {
+                this._navigationDiagnostic('virtual-index-plan', marker, context, {
+                    ok: true, strategy: correction.strategy, mappingVerified: true, correction: true
+                });
+                const correctedResult = await this._requestVirtualizerJump(correction, marker, context, 900);
+                if (!isCurrent() || !correctedResult?.ok) return null;
+                const correctedWait = await this._waitForMarkerMount(marker, context, 650);
                 if (!isCurrent()) return null;
-                scrollContainer.scrollTop = Math.min(position, maxTop);
-                checked++;
-                await new Promise(resolve => setTimeout(resolve, 65));
-                const found = this.resolveTimelineElement(marker);
-                if (found) {
-                    window.AITGPTDiagnostics?.log('timeline.navigation', {
-                        stage: 'scroll-search-found', markerId: marker?.id || '',
-                        scrollTop: scrollContainer.scrollTop, positionsChecked: checked
-                    });
-                    return found;
+                this._navigationDiagnostic(correctedWait.element ? 'target-mount-detected' : 'target-mount-timeout', marker, context, {
+                    strategy: correction.strategy, mountMs: correctedWait.mountMs, correction: true
+                });
+                if (correctedWait.element) {
+                    this._navigationDiagnostic('target-identity-verified', marker, context, { correction: true });
+                    return correctedWait.element;
                 }
             }
-            window.AITGPTDiagnostics?.log('timeline.navigation', {
-                stage: 'scroll-search-exhausted', markerId: marker?.id || '',
-                positionsChecked: checked, maxTop
-            });
         }
-
-        for (let attempt = 0; attempt < 18; attempt++) {
-            if (!isCurrent()) return null;
-            const element = this.resolveTimelineElement(marker);
-            if (element) return element;
-            await new Promise(resolve => setTimeout(resolve, 100));
-        }
+        this._navigationDiagnostic('target-identity-failed', marker, context, {
+            strategy: result.indexStrategy || plan.strategy, reason: 'mounted-id-not-confirmed'
+        });
         return null;
     }
 
