@@ -773,13 +773,15 @@ class ChatGPTAdapter extends SiteAdapter {
         return Math.max(0, Math.min(currentMax, scaledTop));
     }
 
-    _getMountedUserOrderRange() {
+    _getMountedUserOrderRange(scrollContainer = null) {
         const orderByAlias = new Map();
         this._capturedTurns.forEach(turn => {
             [turn.id, turn.nodeId, turn.messageId, ...(turn.ids || [])].filter(Boolean)
                 .forEach(id => orderByAlias.set(id, turn.userOrder));
         });
-        const orders = [];
+        const anchors = [];
+        const containerRect = scrollContainer?.getBoundingClientRect?.() || { top: 0 };
+        const scrollTop = scrollContainer?.scrollTop || 0;
         const roots = [
             ...this._getModernTurnRoots(),
             ...Array.from(document.querySelectorAll?.('[data-turn-id-container], [data-turn-id], [data-message-id]') || [])
@@ -789,9 +791,19 @@ class ChatGPTAdapter extends SiteAdapter {
             const ids = element.matches?.(ChatGPTAdapter.MODERN_TURN_SELECTOR)
                 ? this._getModernRoleIdCandidates(element) : this._getDomIdCandidates(element, { includeWeak: false });
             const order = ids.map(id => orderByAlias.get(id)).find(Number.isFinite);
-            if (Number.isFinite(order)) orders.push(order);
+            if (!Number.isFinite(order)) return;
+            const rect = this.getTimelineMessageRect(element) || element.getBoundingClientRect?.();
+            if (!rect) return;
+            anchors.push({ order, top: Math.max(0, scrollTop + rect.top - containerRect.top) });
         });
-        return orders.length ? { min: Math.min(...orders), max: Math.max(...orders) } : null;
+        const unique = Array.from(new Map(anchors
+            .sort((a, b) => a.order - b.order)
+            .map(anchor => [anchor.order, anchor])).values());
+        return unique.length ? {
+            min: unique[0].order,
+            max: unique[unique.length - 1].order,
+            anchors: unique
+        } : null;
     }
 
     async _tryKnownTimelinePosition(marker, context) {
@@ -822,7 +834,7 @@ class ChatGPTAdapter extends SiteAdapter {
         return isCurrent() ? waited.element : null;
     }
 
-    async _fallbackScrollByUserOrder(marker, context) {
+    async _fallbackScrollByUserOrder(marker, context, restoreTop = null) {
         const isCurrent = typeof context.isCurrent === 'function' ? context.isCurrent : () => true;
         const scrollContainer = context.scrollContainer;
         const userOrder = Number(marker?.userOrder);
@@ -832,11 +844,15 @@ class ChatGPTAdapter extends SiteAdapter {
         if (!isCurrent() || !scrollContainer || !(maxScrollTop > 0)
             || !(userOrder > 0) || totalUsers < 2) return null;
 
+        const originalTop = Number.isFinite(restoreTop) ? restoreTop : (scrollContainer.scrollTop || 0);
+        let lowerTop = 0;
+        let upperTop = maxScrollTop;
         let nextTop = ((userOrder - 1) / (totalUsers - 1)) * maxScrollTop;
-        let lastDirection = 0;
         const visited = new Set();
-        for (let attempt = 0; attempt < 3 && isCurrent(); attempt++) {
-            const boundedTop = Math.max(0, Math.min(maxScrollTop, nextTop));
+        let attempts = 0;
+        for (let attempt = 0; attempt < 8 && isCurrent(); attempt++) {
+            attempts = attempt + 1;
+            const boundedTop = Math.max(lowerTop, Math.min(upperTop, nextTop));
             const key = Math.round(boundedTop / 4);
             if (visited.has(key)) break;
             visited.add(key);
@@ -845,22 +861,42 @@ class ChatGPTAdapter extends SiteAdapter {
                 strategy: attempt === 0 ? 'bounded-scroll-ratio' : 'directional-local-correction',
                 attempt: attempt + 1
             });
-            const waited = await this._waitForMarkerMount(marker, context, attempt === 0 ? 900 : 700);
+            const waited = await this._waitForMarkerMount(marker, context, attempt === 0 ? 800 : 550);
             if (!isCurrent()) return null;
             if (waited.element) return waited.element;
 
-            const range = this._getMountedUserOrderRange();
+            const range = this._getMountedUserOrderRange(scrollContainer);
             if (!range) break;
-            const direction = userOrder < range.min ? -1 : userOrder > range.max ? 1 : 0;
-            if (!direction || (lastDirection && direction !== lastDirection)) break;
-            lastDirection = direction;
-            const referenceOrder = direction < 0 ? range.min : range.max;
-            const orderDistance = Math.max(1, Math.abs(userOrder - referenceOrder));
-            const estimatedPerTurn = maxScrollTop / Math.max(1, totalUsers - 1);
-            const step = Math.min(maxScrollTop * 0.3,
-                Math.max(scrollContainer.clientHeight * 1.25, estimatedPerTurn * orderDistance));
-            nextTop = boundedTop + direction * step;
+            if (userOrder < range.min) {
+                upperTop = Math.min(upperTop, boundedTop - 1);
+            } else if (userOrder > range.max) {
+                lowerTop = Math.max(lowerTop, boundedTop + 1);
+            } else {
+                const left = [...range.anchors].reverse().find(anchor => anchor.order < userOrder);
+                const right = range.anchors.find(anchor => anchor.order > userOrder);
+                if (!left || !right || right.order === left.order) break;
+                lowerTop = Math.max(lowerTop, Math.min(left.top, right.top));
+                upperTop = Math.min(upperTop, Math.max(left.top, right.top));
+            }
+            if (upperTop - lowerTop < 8) break;
+
+            let projected = NaN;
+            if (range.anchors.length >= 2) {
+                const first = range.anchors[0];
+                const last = range.anchors[range.anchors.length - 1];
+                if (last.order !== first.order && last.top !== first.top) {
+                    projected = first.top + ((userOrder - first.order) / (last.order - first.order))
+                        * (last.top - first.top);
+                }
+            }
+            const midpoint = lowerTop + (upperTop - lowerTop) / 2;
+            nextTop = Number.isFinite(projected) && projected > lowerTop + 4 && projected < upperTop - 4
+                ? projected : midpoint;
         }
+        if (isCurrent()) scrollContainer.scrollTop = Math.max(0, Math.min(maxScrollTop, originalTop));
+        this._navigationDiagnostic('target-identity-failed', marker, context, {
+            strategy: 'bounded-evidence-search', reason: 'bounded-search-exhausted', attempts
+        });
         return null;
     }
 
@@ -1081,6 +1117,7 @@ class ChatGPTAdapter extends SiteAdapter {
     async jumpToTimelineMarker(marker, context = {}) {
         const isCurrent = typeof context.isCurrent === 'function' ? context.isCurrent : () => true;
         if (!isCurrent()) return null;
+        const navigationStartTop = context.scrollContainer?.scrollTop || 0;
         this._navigationDiagnostic('marker-resolved', marker, context, {
             identityAvailable: this._getMarkerAliasIds(marker).length > 0
         });
@@ -1113,7 +1150,7 @@ class ChatGPTAdapter extends SiteAdapter {
                 reason: result?.reason || 'bridge-no-response', failureStage: result?.failureStage || 'bridge'
             });
             if (result?.reason === 'cancelled') return null;
-            const fallbackElement = await this._fallbackScrollByUserOrder(marker, context);
+            const fallbackElement = await this._fallbackScrollByUserOrder(marker, context, navigationStartTop);
             if (fallbackElement) {
                 this._navigationDiagnostic('target-identity-verified', marker, context, {
                     strategy: 'bounded-scroll-fallback'
@@ -1157,10 +1194,10 @@ class ChatGPTAdapter extends SiteAdapter {
                 }
             }
         }
-        this._navigationDiagnostic('target-identity-failed', marker, context, {
-            strategy: result.indexStrategy || plan.strategy, reason: 'mounted-id-not-confirmed'
+        this._navigationDiagnostic('target-mount-timeout', marker, context, {
+            strategy: result.indexStrategy || plan.strategy, reason: 'bridge-target-not-mounted'
         });
-        return this._fallbackScrollByUserOrder(marker, context);
+        return this._fallbackScrollByUserOrder(marker, context, navigationStartTop);
     }
 
     /**

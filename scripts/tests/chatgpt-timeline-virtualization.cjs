@@ -911,6 +911,54 @@ async function testChatGPTJumpIsBoundedAndNeverScans() {
   }, { scrollContainer: ratioScroll, isCurrent: () => true }), ratioElement,
   'Q2 uses one bounded scroll-range estimate when the React virtualizer is unavailable');
   assert.equal(ratioWrites, 1, 'successful coarse positioning does not scan or oscillate');
+
+  const bracketAdapter = new context.window.__TestChatGPTAdapter();
+  bracketAdapter._capturedTurns = cachedAdapter._capturedTurns;
+  bracketAdapter._findIdentityAnchor = () => null;
+  bracketAdapter.resolveTimelineElement = () => null;
+  bracketAdapter._buildVirtualIndexPlan = ratioAdapter._buildVirtualIndexPlan;
+  bracketAdapter._requestVirtualizerJump = ratioAdapter._requestVirtualizerJump;
+  let bracketMounted = false;
+  const bracketWrites = [];
+  const bracketScroll = { scrollHeight: 19462, clientHeight: 462, _top: 19000,
+    get scrollTop() { return this._top; },
+    set scrollTop(value) {
+      this._top = value;
+      bracketWrites.push(value);
+      bracketMounted = value > 11800 && value < 12000;
+    },
+    getBoundingClientRect: () => ({ top: 0, bottom: 462 })
+  };
+  bracketAdapter._waitForMarkerMount = async () => ({
+    element: bracketMounted ? ratioElement : null, mountMs: 1, mutations: 1
+  });
+  bracketAdapter._getMountedUserOrderRange = () => bracketScroll.scrollTop > 14000
+    ? { min: 18, max: 19, anchors: [] }
+    : { min: 10, max: 12, anchors: [] };
+  assert.equal(await bracketAdapter.jumpToTimelineMarker({
+    id: 'chatgpt-u16', sourceId: 'u16', messageId: 'm16', aliasIds: ['u16', 'm16'], userOrder: 16
+  }, { scrollContainer: bracketScroll, isCurrent: () => true }), ratioElement,
+  'Q16 narrows the proven scroll bracket after overshooting above and below the target');
+  assert.equal(bracketWrites.length, 3, 'Q16 is found by one ratio estimate and two shrinking bracket corrections');
+  assert.ok(bracketWrites[2] > bracketWrites[1] && bracketWrites[2] < bracketWrites[0],
+    'the third position stays inside the evidence-backed bracket instead of making another large jump');
+
+  const failingAdapter = new context.window.__TestChatGPTAdapter();
+  failingAdapter._capturedTurns = cachedAdapter._capturedTurns;
+  failingAdapter._findIdentityAnchor = () => null;
+  failingAdapter.resolveTimelineElement = () => null;
+  failingAdapter._buildVirtualIndexPlan = ratioAdapter._buildVirtualIndexPlan;
+  failingAdapter._requestVirtualizerJump = ratioAdapter._requestVirtualizerJump;
+  failingAdapter._waitForMarkerMount = async () => ({ element: null, mountMs: 1, mutations: 0 });
+  failingAdapter._getMountedUserOrderRange = () => null;
+  const failedScroll = { scrollHeight: 19462, clientHeight: 462, _top: 19000,
+    get scrollTop() { return this._top; }, set scrollTop(value) { this._top = value; }
+  };
+  assert.equal(await failingAdapter.jumpToTimelineMarker({
+    id: 'chatgpt-u16', sourceId: 'u16', messageId: 'm16', aliasIds: ['u16', 'm16'], userOrder: 16
+  }, { scrollContainer: failedScroll, isCurrent: () => true }), null,
+  'a search without mounted stable-ID evidence reports failure');
+  assert.equal(failedScroll.scrollTop, 19000, 'failed bounded search restores the pre-click reading position');
 }
 
 async function testCapturedApiTriggersInitialization() {
