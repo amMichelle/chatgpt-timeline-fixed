@@ -1819,7 +1819,10 @@ class TimelineManager {
             messageSelector: prepared.selector,
             userTurnElements: prepared.userTurnElements
         });
-        if (newConv && (newConv !== this.conversationContainer || !this.conversationContainer?.isConnected)) {
+        const newScrollContainer = newConv
+            ? this.adapter.resolveTimelineScrollContainer?.(first, newConv) || null : null;
+        if (newConv && (newConv !== this.conversationContainer || !this.conversationContainer?.isConnected
+            || (newScrollContainer && newScrollContainer !== this.scrollContainer))) {
             this.rebindConversationContainer(newConv, prepared);
             return true;
         }
@@ -2551,6 +2554,11 @@ class TimelineManager {
             }
             marker.element = targetElement;
             marker.virtual = false;
+            if (isChatGPT) {
+                const liveScrollContainer = this.adapter.resolveTimelineScrollContainer?.(
+                    targetElement, this.conversationContainer) || null;
+                this._adoptChatGPTScrollContainer(liveScrollContainer);
+            }
             const scrolled = await this.smoothScrollTo(targetElement,
                 isChatGPT ? 0 : duration, { isCurrent });
             if (!isCurrent()) return false;
@@ -2560,11 +2568,14 @@ class TimelineManager {
             // again from the current DOM before success can be reported.
             const verifiedElement = isChatGPT ? resolved : (resolved?.isConnected ? resolved : targetElement);
             let visible = this._isElementVisibleInScrollContainer(verifiedElement);
-            if (!visible && verifiedElement?.isConnected && this.scrollContainer) {
-                const containerRect = this.scrollContainer.getBoundingClientRect();
+            const correctionContainer = isChatGPT
+                ? this.adapter.resolveTimelineScrollContainer?.(verifiedElement, this.conversationContainer) || null
+                : this.scrollContainer;
+            if (!visible && verifiedElement?.isConnected && correctionContainer) {
+                const containerRect = correctionContainer.getBoundingClientRect();
                 const targetRect = this._getMessageRect(verifiedElement);
                 const scrollOffset = this.adapter?.getScrollOffset?.() ?? 30;
-                this.scrollContainer.scrollTop += targetRect.top - containerRect.top - scrollOffset;
+                correctionContainer.scrollTop += targetRect.top - containerRect.top - scrollOffset;
                 await new Promise(resolve => requestAnimationFrame(() => resolve()));
                 if (!isCurrent()) return false;
                 const resolvedAfterCorrection = this.adapter.resolveTimelineElement?.(marker) || null;
@@ -2623,24 +2634,78 @@ class TimelineManager {
         }
     }
 
+    _adoptChatGPTScrollContainer(container) {
+        if (this.adapter?.platformId !== 'chatgpt' || !container || container === this.scrollContainer) return;
+        if (container.isConnected === false) return;
+        try { this.scrollContainer?.removeEventListener?.('scroll', this.onScroll); } catch {}
+        this.scrollContainer = container;
+        this.isScrollContainerFallback = false;
+        try { this.scrollContainer.addEventListener?.('scroll', this.onScroll, { passive: true }); } catch {}
+
+        if (this.intersectionObserver && typeof IntersectionObserver === 'function') {
+            try { this.intersectionObserver.disconnect(); } catch {}
+            this.intersectionObserver = new IntersectionObserver(entries => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) this.visibleUserTurns.add(entry.target);
+                    else this.visibleUserTurns.delete(entry.target);
+                });
+                this.scheduleScrollSync();
+            }, { root: this.scrollContainer, threshold: 0.1, rootMargin: '-40% 0px -59% 0px' });
+            this.updateIntersectionObserverTargets();
+        }
+    }
+
     _isElementVisibleInScrollContainer(targetElement) {
-        if (!targetElement?.isConnected || !this.scrollContainer) return false;
-        const containerRect = this.scrollContainer.getBoundingClientRect();
+        if (!targetElement?.isConnected) return false;
+        const isChatGPT = this.adapter?.platformId === 'chatgpt';
+        const resolvedContainer = isChatGPT
+            ? this.adapter.resolveTimelineScrollContainer?.(targetElement, this.conversationContainer) || null
+            : this.scrollContainer;
+        const useViewport = isChatGPT && !resolvedContainer && this.isScrollContainerFallback;
+        const container = resolvedContainer || this.scrollContainer;
+        if (!container && !useViewport) return false;
+        const containerRect = useViewport
+            ? { top: 0, bottom: window.innerHeight || document.documentElement?.clientHeight || 0 }
+            : container.getBoundingClientRect();
         const targetRect = this._getMessageRect(targetElement);
-        if (this.adapter?.platformId === 'chatgpt'
-            && !(targetRect.height > 0 || targetRect.bottom > targetRect.top)) return false;
+        if (isChatGPT && !(targetRect.height > 0 || targetRect.bottom > targetRect.top)) return false;
         return targetRect.bottom > containerRect.top + 4
             && targetRect.top < containerRect.bottom - 4;
     }
 
     smoothScrollTo(targetElement, duration = 600, options = {}) {
-        if (!targetElement || !this.scrollContainer) return Promise.resolve(false);
+        if (!targetElement) return Promise.resolve(false);
+        const canUseNativeChatGPTScroll = this.adapter?.platformId === 'chatgpt'
+            && typeof targetElement.scrollIntoView === 'function';
+        if (!this.scrollContainer && !canUseNativeChatGPTScroll) return Promise.resolve(false);
         this._scrollAnimationSequence = (Number.isFinite(this._scrollAnimationSequence) ? this._scrollAnimationSequence : 0) + 1;
         const animationSequence = this._scrollAnimationSequence;
         const isCurrent = typeof options.isCurrent === 'function' ? options.isCurrent : () => true;
 
         const preventAutoScroll = window.__aitPreventAutoScroll;
         const navigationId = preventAutoScroll?.notifyUserNavigation?.({ durationMs: duration + 150 });
+
+        if (canUseNativeChatGPTScroll) {
+            const beforeRect = this._getMessageRect(targetElement);
+            const nativeTarget = this.adapter.getTimeLabelTarget?.(targetElement) || targetElement;
+            try {
+                nativeTarget.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'instant' });
+            } catch {
+                nativeTarget.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'auto' });
+            }
+            return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => {
+                const afterRect = this._getMessageRect(targetElement);
+                const moved = Math.abs((afterRect?.top || 0) - (beforeRect?.top || 0)) > 1;
+                const visible = isCurrent() && this._isElementVisibleInScrollContainer(targetElement);
+                preventAutoScroll?.settleUserNavigation?.({ id: navigationId });
+                window.AITGPTDiagnostics?.log('timeline.navigation', {
+                    stage: 'native-scroll-result', moved, visible,
+                    scrollContainerFallback: !!this.isScrollContainerFallback,
+                    scrollTag: this.scrollContainer?.tagName || ''
+                });
+                resolve(visible);
+            })));
+        }
 
         this._recalcMarkerPositions();
         
@@ -4815,8 +4880,11 @@ class TimelineManager {
      * ✅ 渲染所有图钉（独立于节点渲染）
      */
     renderPinMarkers() {
+        const timelineBar = this.ui?.timelineBar;
+        if (this._destroyed || !timelineBar?.isConnected) return;
+
         // 清除所有旧的图钉
-        const oldPins = this.ui.timelineBar.querySelectorAll('.timeline-pin-marker');
+        const oldPins = timelineBar.querySelectorAll('.timeline-pin-marker');
         oldPins.forEach(pin => pin.remove());
         
         // 为所有标记的节点渲染图钉
@@ -4831,7 +4899,7 @@ class TimelineManager {
                 pinMarker.style.setProperty('--n', String(n));
                 
                 // 添加到 timelineBar
-                this.ui.timelineBar.appendChild(pinMarker);
+                timelineBar.appendChild(pinMarker);
             }
         });
     }

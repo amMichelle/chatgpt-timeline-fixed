@@ -149,14 +149,24 @@
     const overlap = observed.some(index => visible.includes(index));
     const exactKeyIndex = resolveTargetIndex(api, request);
     const element = scrollElement(api);
-    const elementInConversation = !!element?.closest?.('main, #thread, [data-virtualized-list], [data-scroll-root]');
-    const ownershipVerified = candidate.conversationEvidence || overlap || Number.isFinite(exactKeyIndex) || elementInConversation;
+    const conversationNode = document.querySelector?.('#thread')
+      || document.querySelector?.('[data-turn-key], [data-content-search-turn-key], [data-turn-id-container], [data-turn="user"]');
+    const elementControlsConversation = !!(element && conversationNode
+      && (element === conversationNode || element.contains?.(conversationNode)));
+    const conversationRangeEvidence = candidate.conversationEvidence
+      && visible.length > 0 && Number.isFinite(itemCount(api));
+    const ownershipVerified = overlap || Number.isFinite(exactKeyIndex)
+      || elementControlsConversation || conversationRangeEvidence;
     if (!ownershipVerified) return { ok: false, reason: 'main-conversation-controller-unverified' };
+    const ownershipRank = Number.isFinite(exactKeyIndex) ? 4
+      : elementControlsConversation ? 3 : overlap ? 2 : 1;
     return {
       ok: true,
       method: preferredMethod(api),
       ownershipStrategy: Number.isFinite(exactKeyIndex) ? 'target-item-key'
-        : overlap ? 'visible-index-overlap' : elementInConversation ? 'scroll-element' : 'conversation-react-root',
+        : elementControlsConversation ? 'conversation-scroll-element'
+          : overlap ? 'visible-index-overlap' : 'conversation-virtual-range',
+      ownershipRank,
       exactKeyIndex,
       itemCount: itemCount(api),
       visibleIndices: visible
@@ -190,14 +200,11 @@
         const candidate = { api: value, conversationEvidence: !!conversationEvidence };
         const validation = validateController(candidate, request);
         if (!validation.ok) lastReason = validation.reason;
-        if (validation.ok && currentScore > bestScore) {
+        const rankedScore = validation.ok ? validation.ownershipRank * 10000 + currentScore : 0;
+        if (validation.ok && rankedScore > bestScore) {
           best = candidate;
           bestValidation = validation;
-          bestScore = currentScore;
-          // Conversation-root discovery is sufficient for this private plugin.
-          // Stop early instead of walking thousands of React objects on every
-          // long-conversation click.
-          if (currentScore >= 301 && candidate.conversationEvidence) break;
+          bestScore = rankedScore;
         }
       }
       if (depth >= MAX_DEPTH) continue;
@@ -235,17 +242,24 @@
   };
   const requestActive = (requestId, requestGeneration, deadlineAt) =>
     generation === requestGeneration && !cancelledRequests.has(requestId) && now() < deadlineAt;
-  const observeCommand = async (api, before, targetIndex, requestId, requestGeneration, deadlineAt, checks = 6) => {
+  const observeCommand = async (api, before, targetIndex, requestId, requestGeneration, deadlineAt, checks = 9) => {
     for (let attempt = 0; attempt < checks; attempt++) {
       if (!requestActive(requestId, requestGeneration, deadlineAt)) return { cancelled: true, changed: false, after: snapshot(api) };
-      await delay(30);
+      await delay(35);
       const after = snapshot(api);
-      if (Number.isFinite(targetIndex) && after.indices.includes(targetIndex)) {
-        return { changed: snapshotChanged(before, after), targetVisible: true, after };
-      }
-      if (snapshotChanged(before, after)) return { changed: true, after };
+      const changed = snapshotChanged(before, after);
+      if (changed) return {
+        changed: true,
+        targetVisible: Number.isFinite(targetIndex) && after.indices.includes(targetIndex),
+        after
+      };
     }
-    return { changed: false, targetVisible: false, after: snapshot(api) };
+    const after = snapshot(api);
+    return {
+      changed: false,
+      targetVisible: Number.isFinite(targetIndex) && after.indices.includes(targetIndex),
+      after
+    };
   };
 
   const callWithFeedback = async (api, methodName, target, requestId, requestGeneration, deadlineAt) => {
@@ -269,9 +283,12 @@
       const before = snapshot(api);
       try { await callMaybeAsync(attempts[signatureAttempt]); } catch (error) { lastError = error; continue; }
       const observed = await observeCommand(api, before, methodName === 'scrollToOffset' ? null : target,
-        requestId, requestGeneration, deadlineAt, signatureAttempt === 0 ? 6 : 8);
+        requestId, requestGeneration, deadlineAt, 9);
       if (observed.cancelled) return { ok: false, reason: 'cancelled' };
-      if (observed.changed || observed.targetVisible) {
+      // A target that was already listed as visible before the call is not
+      // evidence that this command did anything. Only an observable range or
+      // scroll-position change accepts the signature.
+      if (observed.changed) {
         return {
           ok: true,
           method: methodName,

@@ -371,6 +371,18 @@ async function testVirtualizerBridge() {
   assert.equal(result.ok, false);
   assert.equal(result.reason, 'scroll-state-unchanged', 'no observable movement must never be reported as success');
 
+  const alreadyVisibleNoOp = {
+    options: { count: 20 },
+    getVirtualItems: () => [{ index: 3 }, { index: 4 }, { index: 5 }],
+    scrollToIndex() {}
+  };
+  result = await runBridge(alreadyVisibleNoOp, {
+    index: 4, mappingVerified: true, strategy: 'verified-test', observedIndices: [4]
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, 'scroll-state-unchanged',
+    'an index that was already visible before a no-op command is not movement');
+
   visible = [84, 85, 86];
   let ratioIndex = null;
   const countMismatchController = {
@@ -533,11 +545,12 @@ async function testAdapterBuildsCompleteMarkersFromPartialDom() {
   const scrollRoot = new ModernElement('div', { 'data-scroll-root': '' });
   main.parentElement = scrollRoot;
   scrollRoot.children.push(main);
-  scrollRoot.scrollHeight = 1200;
+  scrollRoot.scrollHeight = 500;
   scrollRoot.clientHeight = 500;
   const userRoot = new ModernElement('div', { 'data-turn-key': 'opaque-user-turn' }, main);
   const contentRoot = new ModernElement('div', { 'data-content-search-turn-key': 'content-user' }, userRoot);
-  new ModernElement('div', { 'data-chatgpt-selection-message-id': 'm2' }, contentRoot);
+  const userContent = new ModernElement('div', { 'data-chatgpt-selection-message-id': 'm2' }, contentRoot);
+  userContent.textContent = 'second question';
   new ModernElement('div', { 'data-chatgpt-search-message-ids': '["m2","related-id"]' }, contentRoot);
   new ModernElement('div', { 'data-dil-message-id': 'dil-block-1' }, contentRoot);
   new ModernElement('div', { 'data-dil-message-id': 'dil-block-2' }, contentRoot);
@@ -545,7 +558,8 @@ async function testAdapterBuildsCompleteMarkersFromPartialDom() {
   new ModernElement('div', { 'data-chatgpt-selection-message-id': 'assistant-message' }, assistantRoot);
   new ModernElement('div', { 'data-chatgpt-search-message-ids': '["m2","assistant-message"]' }, assistantRoot);
   const contentOnlyRoot = new ModernElement('div', { 'data-content-search-turn-key': 'content-only-turn' }, main);
-  new ModernElement('div', { 'data-chatgpt-selection-message-id': 'm3' }, contentOnlyRoot);
+  const contentOnlyMessage = new ModernElement('div', { 'data-chatgpt-selection-message-id': 'm3' }, contentOnlyRoot);
+  contentOnlyMessage.textContent = 'third question';
   const form = new ModernElement('form', {}, main);
   const composer = new ModernElement('div', { 'data-turn-key': 'composer-turn', 'data-composer-input': '' }, form);
   const allModern = [userRoot, contentRoot, assistantRoot, contentOnlyRoot, composer];
@@ -555,7 +569,7 @@ async function testAdapterBuildsCompleteMarkersFromPartialDom() {
   };
   document.querySelector = selector => document.querySelectorAll(selector)[0] || null;
   document.getElementById = () => null;
-  context.window.getComputedStyle = element => ({ overflowY: element === scrollRoot ? 'auto' : 'visible' });
+  context.window.getComputedStyle = element => ({ overflowY: element.hasAttribute?.('data-scroll-root') ? 'auto' : 'visible' });
   context.document.body = new ModernElement('body');
   context.document.documentElement = new ModernElement('html');
 
@@ -571,7 +585,20 @@ async function testAdapterBuildsCompleteMarkersFromPartialDom() {
   assert.equal(assistantRoot.getAttribute('data-ait-turn'), null, 'assistant roots must not be inferred as users');
   assert.equal(adapter.getInitializationAnchor(), userRoot, 'modern turn is a valid initialization anchor without #thread');
   assert.equal(adapter.findConversationContainer(userRoot), main, 'main is the stable no-#thread conversation container');
-  assert.equal(adapter.resolveTimelineScrollContainer(userRoot, main), scrollRoot, 'scroll root is found from turn ancestors');
+  assert.equal(adapter.resolveTimelineScrollContainer(userRoot, main), scrollRoot,
+    'ChatGPT scroll root is retained before it has a scrollable range');
+  const nestedMain = new ModernElement('main');
+  const nestedScrollRoot = new ModernElement('div', { 'data-scroll-root': '' }, nestedMain);
+  const nestedTurn = new ModernElement('div', { 'data-turn-key': 'nested-turn' }, nestedScrollRoot);
+  assert.equal(adapter.resolveTimelineScrollContainer(nestedTurn, nestedMain), nestedScrollRoot,
+    'a main-owned inner scroll layer is accepted as the ChatGPT conversation scroller');
+  const rangedMain = new ModernElement('main');
+  const rangedScrollRoot = new ModernElement('div', {}, rangedMain);
+  rangedScrollRoot.scrollHeight = 1600;
+  rangedScrollRoot.clientHeight = 500;
+  const rangedTurn = new ModernElement('div', { 'data-turn-key': 'ranged-turn' }, rangedScrollRoot);
+  assert.equal(adapter.resolveTimelineScrollContainer(rangedTurn, rangedMain), rangedScrollRoot,
+    'a real ChatGPT scroll range is used even when overflow-y metadata is missing');
   assert.equal(adapter.getTimelineInitializationState().reason, 'user-dom');
   const getModernTurnRoots = adapter._getModernTurnRoots.bind(adapter);
   const querySelector = document.querySelector.bind(document);
@@ -592,7 +619,8 @@ async function testAdapterBuildsCompleteMarkersFromPartialDom() {
   assert.equal(adapter.resolveTimelineElement(modernEntries[1]), userRoot);
 
   const firstAnchor = new ModernElement('div', { 'data-turn-key': 'first-anchor', 'data-index': '9' }, main);
-  new ModernElement('div', { 'data-chatgpt-selection-message-id': 'm1' }, firstAnchor);
+  const firstAnchorContent = new ModernElement('div', { 'data-chatgpt-selection-message-id': 'm1' }, firstAnchor);
+  firstAnchorContent.textContent = 'first question';
   contentOnlyRoot.setAttribute('data-index', '11');
   const originalModernRoots = adapter._getModernTurnRoots;
   adapter._getModernTurnRoots = () => [firstAnchor, contentOnlyRoot];
@@ -608,6 +636,7 @@ async function testAdapterBuildsCompleteMarkersFromPartialDom() {
     'an assistant source/quote ID must never become the assistant turn identity');
 
   const shellOnly = new ModernElement('div', { 'data-turn-key': 'u1', 'data-index': '9' }, main);
+  new ModernElement('div', {}, shellOnly);
   const originalShellRoots = adapter._getModernTurnRoots;
   adapter._getModernTurnRoots = () => [shellOnly];
   adapter._virtualIndexByMessageId.clear();
@@ -626,7 +655,10 @@ async function testAdapterBuildsCompleteMarkersFromPartialDom() {
   const makeTurn = (order, virtualIndex, attachmentOnly = false) => {
     const root = new ModernElement('div', { 'data-turn-key': `u${order}`, 'data-index': String(virtualIndex) }, main);
     if (attachmentOnly) new ModernElement('div', { 'data-attachment-kind': 'image' }, root);
-    else new ModernElement('div', { 'data-chatgpt-selection-message-id': `m${order}` }, root);
+    else {
+      const content = new ModernElement('div', { 'data-chatgpt-selection-message-id': `m${order}` }, root);
+      content.textContent = `question ${order}`;
+    }
     return root;
   };
   let mountedWindow = [makeTurn(42, 82), makeTurn(43, 84), makeTurn(44, 86)];
@@ -678,6 +710,36 @@ async function testManagerVirtualMarkerNavigation() {
   const context = vm.createContext({ window, console, setTimeout, clearTimeout, requestAnimationFrame: callback => callback(0) });
   vm.runInContext(source, context);
   const manager = Object.create(window.__TestTimelineManager.prototype);
+  let nativeTop = 900;
+  const actualScrollRoot = { getBoundingClientRect: () => ({ top: 0, bottom: 500 }) };
+  const fallbackHtml = { scrollTop: 0 };
+  let nativeScrollCalls = 0;
+  const nativeContent = {
+    scrollIntoView() { nativeScrollCalls++; nativeTop = 20; }
+  };
+  const nativeTarget = {
+    isConnected: true,
+    scrollIntoView() { throw new Error('the zero-layout turn shell must not be scrolled'); }
+  };
+  const nativeManager = Object.create(window.__TestTimelineManager.prototype);
+  nativeManager.adapter = {
+    platformId: 'chatgpt',
+    resolveTimelineScrollContainer: () => actualScrollRoot,
+    getTimeLabelTarget: () => nativeContent,
+    getScrollOffset: () => 30
+  };
+  nativeManager.conversationContainer = {};
+  nativeManager.scrollContainer = fallbackHtml;
+  nativeManager.isScrollContainerFallback = true;
+  nativeManager._getMessageRect = () => ({ top: nativeTop, bottom: nativeTop + 80, height: 80 });
+  assert.equal(await nativeManager.smoothScrollTo(nativeTarget, 0), true,
+    'Q10 → Q12 uses a laid-out child and native ancestor scrolling when the stored container is fallback HTML');
+  nativeTop = -700;
+  assert.equal(await nativeManager.smoothScrollTo(nativeTarget, 0), true,
+    'Q12 → Q10 uses the same native path in the opposite direction');
+  assert.equal(nativeScrollCalls, 2, 'each navigation issues one native scroll command');
+  assert.equal(fallbackHtml.scrollTop, 0, 'native ChatGPT navigation never writes scrollTop to fallback HTML');
+
   const mountedById = new Map(['chatgpt-u1', 'chatgpt-u50', 'chatgpt-u100'].map(id => [id, { isConnected: true, id }]));
   const bridgeCalls = [];
   const smoothed = [];

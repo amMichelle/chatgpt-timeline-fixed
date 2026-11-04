@@ -623,16 +623,37 @@ class ChatGPTAdapter extends SiteAdapter {
 
     _isRenderedMessageElement(element) {
         if (!element?.isConnected) return false;
-        if (element.matches?.('[data-chatgpt-selection-message-id], [data-content-search-turn-key], [data-message-id], [data-turn="user"], [data-message-author-role="user"]')) return true;
-        if (element.querySelector?.('[data-chatgpt-selection-message-id], [data-content-search-turn-key], [data-message-id], [data-turn="user"], [data-message-author-role="user"]')) return true;
-        // Attachment-only messages may omit text/selection nodes, but their
-        // rendered media or file controls remain. Generic child DIVs are not
-        // sufficient because virtualized shells may contain spacer children.
-        return !!element.querySelector?.([
+        const hasRenderedBox = node => {
+            if (!node) return false;
+            if (typeof node.getBoundingClientRect !== 'function') return true;
+            const rect = node.getBoundingClientRect();
+            return rect.width > 0 && rect.height > 0;
+        };
+        const attachmentSelector = [
             'img', 'video', 'audio', 'canvas', 'button', 'a', '[role="button"]',
             '[data-attachment-kind]', '[data-file-id]', '[data-asset-id]',
             '[data-testid*="attachment"]', '[data-testid*="file"]', '[data-testid*="image"]'
-        ].join(',')) || (element.childElementCount || 0) > 0;
+        ].join(',');
+        const attachments = [
+            ...(element.matches?.(attachmentSelector) ? [element] : []),
+            ...Array.from(element.querySelectorAll?.(attachmentSelector) || [])
+        ];
+        if (attachments.some(hasRenderedBox)) return true;
+
+        // Identity attributes locate a turn, but do not prove that React has
+        // rendered its content. Require laid-out content with real text so a
+        // virtual spacer shell cannot become a successful jump target.
+        const contentSelector = [
+            '[data-chatgpt-selection-message-id]', '[data-message-id]',
+            '[data-message-author-role="user"]', '[data-turn="user"]',
+            '.markdown', '.whitespace-pre-wrap'
+        ].join(',');
+        const contentNodes = [
+            ...(element.matches?.(contentSelector) ? [element] : []),
+            ...Array.from(element.querySelectorAll?.(contentSelector) || [])
+        ];
+        return contentNodes.some(node => hasRenderedBox(node)
+            && !!String(node.textContent || element.textContent || '').trim());
     }
 
     _readDomVirtualIndex(element) {
@@ -1299,20 +1320,43 @@ class ChatGPTAdapter extends SiteAdapter {
     }
 
     resolveTimelineScrollContainer(anchor, conversationContainer) {
-        let node = anchor || conversationContainer;
+        // Start above the turn itself so an attachment/code scroller inside a
+        // message can never become the main conversation scroll root.
+        let node = anchor && anchor !== conversationContainer
+            ? anchor.parentElement : (anchor || conversationContainer);
+        let rangedFallback = null;
+        let largestRange = 0;
         while (node && node !== document.body && node !== document.documentElement) {
             try {
                 const style = window.getComputedStyle(node);
                 const scrollableOverflow = /auto|scroll|overlay/.test(style.overflowY || '');
-                const hasScrollableRange = node.scrollHeight > node.clientHeight + 1;
-                if ((scrollableOverflow && hasScrollableRange)
-                    || (node.hasAttribute?.('data-scroll-root') && hasScrollableRange)) {
+                let ownsConversation = !conversationContainer || node === conversationContainer
+                    || !!node.contains?.(conversationContainer)
+                    || !!conversationContainer.contains?.(node);
+                for (let owner = conversationContainer?.parentElement; !ownsConversation && owner; owner = owner.parentElement) {
+                    ownsConversation = owner === node;
+                }
+                for (let owner = node?.parentElement; !ownsConversation && owner; owner = owner.parentElement) {
+                    ownsConversation = owner === conversationContainer;
+                }
+                const scrollRange = Math.max(0, (node.scrollHeight || 0) - (node.clientHeight || 0));
+                if (ownsConversation && scrollRange > largestRange) {
+                    rangedFallback = node;
+                    largestRange = scrollRange;
+                }
+                // ChatGPT often creates the real scroll root before enough
+                // turns are mounted to give it a scrollable range. Keep that
+                // root instead of falling back to the document HTML element.
+                if (ownsConversation && (scrollableOverflow || node.hasAttribute?.('data-scroll-root'))) {
                     return node;
                 }
             } catch {}
             node = node.parentElement;
         }
-        return null;
+        // Some ChatGPT builds do not expose overflow-y:auto on the element
+        // that actually owns the scroll range. Prefer that real ancestor over
+        // falling back to a non-scrollable documentElement.
+        return rangedFallback;
     }
 
     getTimelinePosition() {
