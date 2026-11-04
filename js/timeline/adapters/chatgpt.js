@@ -36,6 +36,9 @@ class ChatGPTAdapter extends SiteAdapter {
         // Exact DOM-observed virtual indices keyed by stable message aliases.
         // API message indexes and virtual item indexes are separate domains.
         this._virtualIndexByMessageId = new Map();
+        // Stable message ID -> last DOM-observed scroll position. This lets a
+        // manually visited turn remain reachable after React unmounts it.
+        this._scrollPositionByMessageId = new Map();
         this._activeVirtualizerRequestId = null;
     }
 
@@ -241,6 +244,7 @@ class ChatGPTAdapter extends SiteAdapter {
             this._capturedPageCount = 0;
             this._capturedRawMessages = 0;
             this._capturedDedupedMessages = 0;
+            this._scrollPositionByMessageId.clear();
             this._capturedVersion = 0;
             this._capturedPendingUserIds.clear();
             this._domOnlyTurns = [];
@@ -268,6 +272,7 @@ class ChatGPTAdapter extends SiteAdapter {
         if (this._textCacheConvId !== conversationId) {
             this._textCacheConvId = conversationId;
             this._turnTextCache.clear();
+            this._scrollPositionByMessageId.clear();
             this._capturedTextIds.clear();
             this._capturedMatchTexts.clear();
             this._capturedTurns = [];
@@ -724,7 +729,10 @@ class ChatGPTAdapter extends SiteAdapter {
 
     getActiveTimelineMarkerId(scrollContainer, markers, activateAhead = 120) {
         if (!scrollContainer || !Array.isArray(markers) || !markers.length) return null;
-        const threshold = scrollContainer.getBoundingClientRect().top + activateAhead;
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const threshold = containerRect.top + activateAhead;
+        const maxScrollTop = Math.max(0, scrollContainer.scrollHeight - scrollContainer.clientHeight);
+        const currentScrollTop = scrollContainer.scrollTop || 0;
         const markerByAlias = new Map();
         markers.forEach(marker => {
             [marker.sourceId, marker.messageId, ...(marker.aliasIds || [])]
@@ -742,9 +750,118 @@ class ChatGPTAdapter extends SiteAdapter {
             marker.virtual = false;
             if (!firstMounted) firstMounted = marker.id;
             const rect = this.getTimelineMessageRect(element) || element.getBoundingClientRect();
+            if (this._isRenderedMessageElement(element)
+                && (rect.height > 0 || rect.bottom > rect.top)) {
+                const top = Math.max(0, currentScrollTop + rect.top - containerRect.top);
+                this._getMarkerAliasIds(marker).forEach(id => this._scrollPositionByMessageId.set(id, {
+                    top, maxScrollTop, userOrder: marker.userOrder || 0
+                }));
+            }
             if (rect.top <= threshold) active = marker.id;
         });
         return active || firstMounted;
+    }
+
+    _getCachedScrollPosition(marker, scrollContainer) {
+        const cached = this._getMarkerAliasIds(marker)
+            .map(id => this._scrollPositionByMessageId.get(id)).find(Boolean);
+        if (!cached || !Number.isFinite(cached.top)) return null;
+        const currentMax = Math.max(0, scrollContainer.scrollHeight - scrollContainer.clientHeight);
+        if (!(currentMax > 0)) return null;
+        const scaledTop = cached.maxScrollTop > 0
+            ? cached.top * (currentMax / cached.maxScrollTop) : cached.top;
+        return Math.max(0, Math.min(currentMax, scaledTop));
+    }
+
+    _getMountedUserOrderRange() {
+        const orderByAlias = new Map();
+        this._capturedTurns.forEach(turn => {
+            [turn.id, turn.nodeId, turn.messageId, ...(turn.ids || [])].filter(Boolean)
+                .forEach(id => orderByAlias.set(id, turn.userOrder));
+        });
+        const orders = [];
+        const roots = [
+            ...this._getModernTurnRoots(),
+            ...Array.from(document.querySelectorAll?.('[data-turn-id-container], [data-turn-id], [data-message-id]') || [])
+        ];
+        roots.forEach(element => {
+            if (!element?.isConnected || !this._isRenderedMessageElement(element)) return;
+            const ids = element.matches?.(ChatGPTAdapter.MODERN_TURN_SELECTOR)
+                ? this._getModernRoleIdCandidates(element) : this._getDomIdCandidates(element, { includeWeak: false });
+            const order = ids.map(id => orderByAlias.get(id)).find(Number.isFinite);
+            if (Number.isFinite(order)) orders.push(order);
+        });
+        return orders.length ? { min: Math.min(...orders), max: Math.max(...orders) } : null;
+    }
+
+    async _tryKnownTimelinePosition(marker, context) {
+        const isCurrent = typeof context.isCurrent === 'function' ? context.isCurrent : () => true;
+        const scrollContainer = context.scrollContainer;
+        if (!isCurrent() || !scrollContainer) return null;
+
+        const identityAnchor = this._findIdentityAnchor(marker);
+        if (identityAnchor && !this._isRenderedMessageElement(identityAnchor)
+            && typeof identityAnchor.scrollIntoView === 'function') {
+            try {
+                identityAnchor.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
+            } catch {
+                identityAnchor.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'auto' });
+            }
+            const waited = await this._waitForMarkerMount(marker, context, 750);
+            if (!isCurrent()) return null;
+            if (waited.element) return waited.element;
+        }
+
+        const cachedTop = this._getCachedScrollPosition(marker, scrollContainer);
+        if (!Number.isFinite(cachedTop)) return null;
+        scrollContainer.scrollTop = cachedTop;
+        this._navigationDiagnostic('scroll-state-changed', marker, context, {
+            strategy: 'cached-dom-scroll-position'
+        });
+        const waited = await this._waitForMarkerMount(marker, context, 850);
+        return isCurrent() ? waited.element : null;
+    }
+
+    async _fallbackScrollByUserOrder(marker, context) {
+        const isCurrent = typeof context.isCurrent === 'function' ? context.isCurrent : () => true;
+        const scrollContainer = context.scrollContainer;
+        const userOrder = Number(marker?.userOrder);
+        const totalUsers = this._capturedTurns.length;
+        const maxScrollTop = scrollContainer
+            ? Math.max(0, scrollContainer.scrollHeight - scrollContainer.clientHeight) : 0;
+        if (!isCurrent() || !scrollContainer || !(maxScrollTop > 0)
+            || !(userOrder > 0) || totalUsers < 2) return null;
+
+        let nextTop = ((userOrder - 1) / (totalUsers - 1)) * maxScrollTop;
+        let lastDirection = 0;
+        const visited = new Set();
+        for (let attempt = 0; attempt < 3 && isCurrent(); attempt++) {
+            const boundedTop = Math.max(0, Math.min(maxScrollTop, nextTop));
+            const key = Math.round(boundedTop / 4);
+            if (visited.has(key)) break;
+            visited.add(key);
+            scrollContainer.scrollTop = boundedTop;
+            this._navigationDiagnostic('scroll-state-changed', marker, context, {
+                strategy: attempt === 0 ? 'bounded-scroll-ratio' : 'directional-local-correction',
+                attempt: attempt + 1
+            });
+            const waited = await this._waitForMarkerMount(marker, context, attempt === 0 ? 900 : 700);
+            if (!isCurrent()) return null;
+            if (waited.element) return waited.element;
+
+            const range = this._getMountedUserOrderRange();
+            if (!range) break;
+            const direction = userOrder < range.min ? -1 : userOrder > range.max ? 1 : 0;
+            if (!direction || (lastDirection && direction !== lastDirection)) break;
+            lastDirection = direction;
+            const referenceOrder = direction < 0 ? range.min : range.max;
+            const orderDistance = Math.max(1, Math.abs(userOrder - referenceOrder));
+            const estimatedPerTurn = maxScrollTop / Math.max(1, totalUsers - 1);
+            const step = Math.min(maxScrollTop * 0.3,
+                Math.max(scrollContainer.clientHeight * 1.25, estimatedPerTurn * orderDistance));
+            nextTop = boundedTop + direction * step;
+        }
+        return null;
     }
 
     _buildVirtualIndexPlan(marker) {
@@ -970,6 +1087,14 @@ class ChatGPTAdapter extends SiteAdapter {
         const direct = this.resolveTimelineElement(marker);
         this._navigationDiagnostic(direct ? 'direct-dom-hit' : 'direct-dom-miss', marker, context);
         if (direct) return direct;
+        const knownPositionElement = await this._tryKnownTimelinePosition(marker, context);
+        if (!isCurrent()) return null;
+        if (knownPositionElement) {
+            this._navigationDiagnostic('target-identity-verified', marker, context, {
+                strategy: 'known-dom-position'
+            });
+            return knownPositionElement;
+        }
         const plan = this._buildVirtualIndexPlan(marker);
         if (!plan) {
             this._navigationDiagnostic('virtual-index-plan', marker, context, { ok: false, reason: 'identity-unavailable' });
@@ -987,7 +1112,14 @@ class ChatGPTAdapter extends SiteAdapter {
                 strategy: result?.indexStrategy || plan.strategy,
                 reason: result?.reason || 'bridge-no-response', failureStage: result?.failureStage || 'bridge'
             });
-            return null;
+            if (result?.reason === 'cancelled') return null;
+            const fallbackElement = await this._fallbackScrollByUserOrder(marker, context);
+            if (fallbackElement) {
+                this._navigationDiagnostic('target-identity-verified', marker, context, {
+                    strategy: 'bounded-scroll-fallback'
+                });
+            }
+            return fallbackElement;
         }
         this._navigationDiagnostic(result.stateChanged ? 'scroll-state-changed' : 'scroll-state-unchanged', marker, context, {
             strategy: result.indexStrategy || plan.strategy, reason: result.targetIndexVisible ? 'target-index-visible' : ''
@@ -1028,7 +1160,7 @@ class ChatGPTAdapter extends SiteAdapter {
         this._navigationDiagnostic('target-identity-failed', marker, context, {
             strategy: result.indexStrategy || plan.strategy, reason: 'mounted-id-not-confirmed'
         });
-        return null;
+        return this._fallbackScrollByUserOrder(marker, context);
     }
 
     /**

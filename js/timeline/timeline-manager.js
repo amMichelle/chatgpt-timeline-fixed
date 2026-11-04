@@ -181,9 +181,23 @@ class TimelineManager {
         return this.adapter.getFeatures?.() || this._currentPlatform?.features || {};
     }
 
-    // 默认保持原生测量；仅由平台适配器处理无布局框的消息容器。
+    // 默认保持原生测量；ChatGPT 的无布局 turn 外壳回退到真实提问气泡。
     _getMessageRect(element) {
-        return this.adapter.getTimelineMessageRect?.(element) || element.getBoundingClientRect();
+        const rect = this.adapter.getTimelineMessageRect?.(element) || element.getBoundingClientRect();
+        if (this.adapter?.platformId !== 'chatgpt'
+            || rect?.height > 0 || rect?.bottom > rect?.top) return rect;
+        const bubbleSelector = [
+            '[data-message-author-role="user"]', '[data-turn="user"]',
+            '[data-message-id]', '.whitespace-pre-wrap', '.markdown',
+            '[data-chatgpt-selection-message-id]'
+        ].join(',');
+        for (const candidate of element.querySelectorAll?.(bubbleSelector) || []) {
+            const candidateRect = candidate.getBoundingClientRect?.();
+            if (candidateRect && (candidateRect.height > 0 || candidateRect.bottom > candidateRect.top)) {
+                return candidateRect;
+            }
+        }
+        return rect;
     }
 
     _getMessageHeight(element) {
@@ -2686,25 +2700,63 @@ class TimelineManager {
         const navigationId = preventAutoScroll?.notifyUserNavigation?.({ durationMs: duration + 150 });
 
         if (canUseNativeChatGPTScroll) {
-            const beforeRect = this._getMessageRect(targetElement);
-            const nativeTarget = this.adapter.getTimeLabelTarget?.(targetElement) || targetElement;
+            const rootRect = targetElement.getBoundingClientRect?.();
+            let nativeTarget = targetElement;
+            if (!(rootRect?.height > 0 || rootRect?.bottom > rootRect?.top)) {
+                const bubbleSelector = [
+                    '[data-message-author-role="user"]', '[data-turn="user"]',
+                    '[data-message-id]', '.whitespace-pre-wrap', '.markdown',
+                    '[data-chatgpt-selection-message-id]'
+                ].join(',');
+                nativeTarget = Array.from(targetElement.querySelectorAll?.(bubbleSelector) || [])
+                    .find(element => {
+                        const rect = element.getBoundingClientRect?.();
+                        return rect && (rect.height > 0 || rect.bottom > rect.top);
+                    }) || targetElement;
+            }
+            const getAnchorRect = () => nativeTarget === targetElement
+                ? this._getMessageRect(targetElement)
+                : nativeTarget.getBoundingClientRect();
+            const beforeRect = getAnchorRect();
             try {
                 nativeTarget.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'instant' });
             } catch {
                 nativeTarget.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'auto' });
             }
-            return new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => {
-                const afterRect = this._getMessageRect(targetElement);
-                const moved = Math.abs((afterRect?.top || 0) - (beforeRect?.top || 0)) > 1;
-                const visible = isCurrent() && this._isElementVisibleInScrollContainer(targetElement);
-                preventAutoScroll?.settleUserNavigation?.({ id: navigationId });
-                window.AITGPTDiagnostics?.log('timeline.navigation', {
-                    stage: 'native-scroll-result', moved, visible,
-                    scrollContainerFallback: !!this.isScrollContainerFallback,
-                    scrollTag: this.scrollContainer?.tagName || ''
+            return new Promise(resolve => requestAnimationFrame(() => {
+                if (!isCurrent()) {
+                    preventAutoScroll?.settleUserNavigation?.({ id: navigationId });
+                    resolve(false);
+                    return;
+                }
+                const liveContainer = this.adapter.resolveTimelineScrollContainer?.(
+                    targetElement, this.conversationContainer) || null;
+                const scrollOffset = Math.max(20, Math.min(40, this.adapter?.getScrollOffset?.() ?? 30));
+                if (liveContainer) {
+                    const containerRect = liveContainer.getBoundingClientRect();
+                    const anchorRect = getAnchorRect();
+                    const correction = anchorRect.top - containerRect.top - scrollOffset;
+                    if (Math.abs(correction) > 2) liveContainer.scrollTop += correction;
+                }
+                requestAnimationFrame(() => {
+                    const afterRect = getAnchorRect();
+                    const moved = Math.abs((afterRect?.top || 0) - (beforeRect?.top || 0)) > 1;
+                    const visible = isCurrent() && this._isElementVisibleInScrollContainer(targetElement);
+                    const finalContainer = this.adapter.resolveTimelineScrollContainer?.(
+                        targetElement, this.conversationContainer) || null;
+                    const finalContainerTop = finalContainer?.getBoundingClientRect?.().top ?? 0;
+                    const topGap = (afterRect?.top || 0) - finalContainerTop;
+                    const aligned = topGap >= 16 && topGap <= 48;
+                    preventAutoScroll?.settleUserNavigation?.({ id: navigationId });
+                    window.AITGPTDiagnostics?.log('timeline.navigation', {
+                        stage: 'native-scroll-result', moved, visible, aligned,
+                        topGap: Math.round(topGap),
+                        scrollContainerFallback: !!this.isScrollContainerFallback,
+                        scrollTag: this.scrollContainer?.tagName || ''
+                    });
+                    resolve(visible);
                 });
-                resolve(visible);
-            })));
+            }));
         }
 
         this._recalcMarkerPositions();

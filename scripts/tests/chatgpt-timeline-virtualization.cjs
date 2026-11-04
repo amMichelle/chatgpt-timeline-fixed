@@ -711,32 +711,40 @@ async function testManagerVirtualMarkerNavigation() {
   vm.runInContext(source, context);
   const manager = Object.create(window.__TestTimelineManager.prototype);
   let nativeTop = 900;
-  const actualScrollRoot = { getBoundingClientRect: () => ({ top: 0, bottom: 500 }) };
+  let actualScrollTop = 500;
+  const actualScrollRoot = {
+    get scrollTop() { return actualScrollTop; },
+    set scrollTop(value) { nativeTop -= value - actualScrollTop; actualScrollTop = value; },
+    getBoundingClientRect: () => ({ top: 0, bottom: 500 })
+  };
   const fallbackHtml = { scrollTop: 0 };
   let nativeScrollCalls = 0;
-  const nativeContent = {
-    scrollIntoView() { nativeScrollCalls++; nativeTop = 20; }
+  const nativeBubble = {
+    getBoundingClientRect: () => ({ top: nativeTop, bottom: nativeTop + 80, height: 80 }),
+    scrollIntoView() { nativeScrollCalls++; nativeTop = 0; }
   };
   const nativeTarget = {
     isConnected: true,
+    getBoundingClientRect: () => ({ top: 0, bottom: 0, height: 0 }),
+    querySelectorAll: () => [nativeBubble],
     scrollIntoView() { throw new Error('the zero-layout turn shell must not be scrolled'); }
   };
   const nativeManager = Object.create(window.__TestTimelineManager.prototype);
   nativeManager.adapter = {
     platformId: 'chatgpt',
     resolveTimelineScrollContainer: () => actualScrollRoot,
-    getTimeLabelTarget: () => nativeContent,
     getScrollOffset: () => 30
   };
   nativeManager.conversationContainer = {};
   nativeManager.scrollContainer = fallbackHtml;
   nativeManager.isScrollContainerFallback = true;
-  nativeManager._getMessageRect = () => ({ top: nativeTop, bottom: nativeTop + 80, height: 80 });
   assert.equal(await nativeManager.smoothScrollTo(nativeTarget, 0), true,
-    'Q10 → Q12 uses a laid-out child and native ancestor scrolling when the stored container is fallback HTML');
+    'Q10 → Q12 uses the laid-out user question bubble when its turn shell has no box');
+  assert.equal(nativeTop, 30, 'the user question is aligned 30px below the chat viewport top');
   nativeTop = -700;
   assert.equal(await nativeManager.smoothScrollTo(nativeTarget, 0), true,
     'Q12 → Q10 uses the same native path in the opposite direction');
+  assert.equal(nativeTop, 30, 'upward navigation uses the same user-question alignment');
   assert.equal(nativeScrollCalls, 2, 'each navigation issues one native scroll command');
   assert.equal(fallbackHtml.scrollTop, 0, 'native ChatGPT navigation never writes scrollTop to fallback HTML');
 
@@ -838,6 +846,71 @@ async function testChatGPTJumpIsBoundedAndNeverScans() {
   }), null, 'an accepted command without an exact DOM identity match is failure');
   assert.equal(commands, 1, 'a failed strategy is not repeated within one navigation task');
   assert.deepEqual(positions, [], 'false success must not fall back to scroll probing');
+
+  const cachedAdapter = new context.window.__TestChatGPTAdapter();
+  cachedAdapter._capturedTurns = Array.from({ length: 19 }, (_, index) => ({
+    id: `u${index + 1}`, messageId: `m${index + 1}`, ids: [`u${index + 1}`, `m${index + 1}`],
+    userOrder: index + 1
+  }));
+  cachedAdapter._findIdentityAnchor = () => null;
+  cachedAdapter.resolveTimelineElement = () => null;
+  cachedAdapter._getDomIdCandidates = () => ['m5'];
+  cachedAdapter._isRenderedMessageElement = () => true;
+  cachedAdapter.getUserMessageSelector = () => '[data-test-user]';
+  const observedQ5 = {
+    isConnected: true, hasAttribute: () => false,
+    getBoundingClientRect: () => ({ top: 200, bottom: 280, height: 80 })
+  };
+  context.document.querySelectorAll = () => [observedQ5];
+  cachedAdapter.getActiveTimelineMarkerId({
+    scrollTop: 4000, scrollHeight: 19462, clientHeight: 462,
+    getBoundingClientRect: () => ({ top: 0, bottom: 462 })
+  }, [{ id: 'chatgpt-u5', sourceId: 'u5', messageId: 'm5', aliasIds: ['u5', 'm5'], userOrder: 5 }]);
+  assert.equal(cachedAdapter._scrollPositionByMessageId.get('m5').top, 4200,
+    'normal manual scrolling records Q5 by stable ID and real scroll position');
+  let cachedMounted = false;
+  const cachedScroll = { scrollHeight: 19462, clientHeight: 462,
+    get scrollTop() { return this._top || 0; },
+    set scrollTop(value) { this._top = value; cachedMounted = Math.abs(value - 4200) < 5; }
+  };
+  const cachedElement = { isConnected: true };
+  cachedAdapter._waitForMarkerMount = async () => ({
+    element: cachedMounted ? cachedElement : null, mountMs: 1, mutations: 1
+  });
+  cachedAdapter._requestVirtualizerJump = async () => { throw new Error('cached DOM position should run before React discovery'); };
+  assert.equal(await cachedAdapter.jumpToTimelineMarker({
+    id: 'chatgpt-u5', sourceId: 'u5', messageId: 'm5', aliasIds: ['u5', 'm5'], userOrder: 5
+  }, { scrollContainer: cachedScroll, isCurrent: () => true }), cachedElement,
+  'a manually visited Q5 can remount from its stable-ID scroll position');
+
+  const ratioAdapter = new context.window.__TestChatGPTAdapter();
+  ratioAdapter._capturedTurns = cachedAdapter._capturedTurns;
+  ratioAdapter._findIdentityAnchor = () => null;
+  ratioAdapter.resolveTimelineElement = () => null;
+  ratioAdapter._buildVirtualIndexPlan = () => ({
+    index: null, strategy: 'virtual-item-key-or-bounded-ratio', mappingVerified: false,
+    observedIndices: [], targetIds: ['u2', 'm2']
+  });
+  ratioAdapter._requestVirtualizerJump = async () => ({ ok: false, reason: 'virtualizer_api_not_found' });
+  let ratioWrites = 0;
+  let ratioMounted = false;
+  const ratioScroll = { scrollHeight: 19462, clientHeight: 462,
+    get scrollTop() { return this._top || 0; },
+    set scrollTop(value) {
+      this._top = value;
+      ratioWrites++;
+      ratioMounted = Math.abs(value - (19000 / 18)) < 5;
+    }
+  };
+  const ratioElement = { isConnected: true };
+  ratioAdapter._waitForMarkerMount = async () => ({
+    element: ratioMounted ? ratioElement : null, mountMs: 1, mutations: 1
+  });
+  assert.equal(await ratioAdapter.jumpToTimelineMarker({
+    id: 'chatgpt-u2', sourceId: 'u2', messageId: 'm2', aliasIds: ['u2', 'm2'], userOrder: 2
+  }, { scrollContainer: ratioScroll, isCurrent: () => true }), ratioElement,
+  'Q2 uses one bounded scroll-range estimate when the React virtualizer is unavailable');
+  assert.equal(ratioWrites, 1, 'successful coarse positioning does not scan or oscillate');
 }
 
 async function testCapturedApiTriggersInitialization() {
