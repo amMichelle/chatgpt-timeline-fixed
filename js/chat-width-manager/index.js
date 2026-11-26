@@ -28,6 +28,7 @@ class ChatWidthManager {
         this._floatingEl = null;
         this._floatingStyleEl = null;
         this._originalWidths = null;
+        this._elementObserver = null;
         this._listenersAttached = false;
     }
 
@@ -83,16 +84,24 @@ class ChatWidthManager {
     // ==================== 内部方法 ====================
 
     _watchForElements() {
+        this._elementObserver?.disconnect();
+        this._elementObserver = null;
         if (this._scale <= 100) return;
         const { selectors } = this._config;
-        if (selectors.every(sel => this._originalWidths?.[sel])) return;
+        const hasResponsiveTarget = () => this._config.responsiveRules?.some(rule =>
+            document.querySelector(rule.selector));
+        if (hasResponsiveTarget()) return;
+        if (!this._config.responsiveRules?.length
+            && selectors.every(sel => this._originalWidths?.[sel])) return;
 
         const observer = new MutationObserver(() => {
-            if (!selectors.every(sel => document.querySelector(sel))) return;
+            if (!hasResponsiveTarget() && !selectors.every(sel => document.querySelector(sel))) return;
             observer.disconnect();
+            this._elementObserver = null;
             this._apply();
         });
         observer.observe(document.body, { childList: true, subtree: true });
+        this._elementObserver = observer;
     }
 
     _snapshotOriginalWidths() {
@@ -128,16 +137,23 @@ class ChatWidthManager {
 
         if (this._scale <= 100) {
             this._styleEl.textContent = '';
+            this._elementObserver?.disconnect();
+            this._elementObserver = null;
             return;
         }
 
         this._snapshotOriginalWidths();
 
         const pct = this._scale;
-        const entries = Object.entries(this._originalWidths);
-        if (entries.length === 0) return;
+        const responsiveRules = this._config.responsiveRules || [];
+        const useResponsiveRules = responsiveRules.some(rule => document.querySelector(rule.selector));
+        // 新版 ChatGPT 命中响应式变量后，不再把旧选择器快照成固定 px，
+        // 避免宽度规则误伤 header/main 等新结构。
+        const entries = useResponsiveRules ? [] : Object.entries(this._originalWidths);
+        const responsiveEntries = responsiveRules.map(rule => [rule.selector, rule.base]);
+        if (entries.length === 0 && responsiveEntries.length === 0) return;
 
-        const rules = entries.map(([sel, base]) =>
+        const rules = [...entries, ...responsiveEntries].map(([sel, base]) =>
             `${sel} { max-width: calc(${base} * ${pct} / 100) !important; }`
         ).join('\n');
 
@@ -396,6 +412,8 @@ class ChatWidthManager {
     }
 
     destroy() {
+        this._elementObserver?.disconnect();
+        this._elementObserver = null;
         this._hideFloatingSlider();
         if (this._styleEl) {
             this._styleEl.remove();

@@ -41,6 +41,30 @@ class BaseSidebarStarredAdapter {
         throw new Error('BaseSidebarStarredAdapter.findInsertionPoint() must be implemented');
     }
 
+    static isInsertionParentVisible(parent) {
+        if (!parent?.isConnected || parent.closest('[hidden], [inert], [aria-hidden="true"]')) return false;
+
+        for (let element = parent; element; element = element.parentElement) {
+            const style = getComputedStyle(element);
+            if (style.visibility !== 'visible' || style.display === 'none') return false;
+            if (style.display === 'contents') continue;
+            const bounds = element.getBoundingClientRect();
+            return bounds.width > 0 && bounds.height > 0
+                && bounds.right > 0 && bounds.left < window.innerWidth;
+        }
+        return false;
+    }
+
+    _preferVisibleInsertionPoint(points) {
+        let fallback = null;
+        for (const point of points) {
+            if (!point?.parent) continue;
+            if (BaseSidebarStarredAdapter.isInsertionParentVisible(point.parent)) return point;
+            fallback ??= point;
+        }
+        return fallback;
+    }
+
     // ==================== 可选覆盖 ====================
 
     getPlatformClass() { return ''; }
@@ -89,6 +113,19 @@ class BaseSidebarStarredAdapter {
     /** 从对话项上移除收藏 icon */
     removeStarIcon(convEl) {}
 
+    /**
+     * 功能关闭或适配器销毁时恢复所有由本功能改动的原生会话项。
+     * 收藏数据本身仍保留在存储中。
+     */
+    restoreNativeList() {
+        document.querySelectorAll(`[${BaseSidebarStarredAdapter.STAR_ICON_ATTR}]`).forEach(icon => icon.remove());
+        document.querySelectorAll(`[${BaseSidebarStarredAdapter.HIDDEN_ATTR}]`).forEach(element => {
+            element.removeAttribute(BaseSidebarStarredAdapter.HIDDEN_ATTR);
+            element.style.removeProperty('display');
+        });
+        document.querySelectorAll(`[${BaseSidebarStarredAdapter.MARKER_ATTR}]`).forEach(item => item.remove());
+    }
+
     // ==================== 原生菜单注入（基类通用逻辑） ====================
 
     /**
@@ -125,13 +162,17 @@ class BaseSidebarStarredAdapter {
     }
 
     destroyNativeMenu() {
-        if (!this._menuInited) return;
+        if (!this._menuInited) {
+            this.restoreNativeList();
+            return;
+        }
         this._menuInited = false;
         const selector = this.getClickDelegateSelector();
         if (selector) window.eventDelegateManager?.off('pointerdown', selector);
         window.eventDelegateManager?.off('pointerup', `[${BaseSidebarStarredAdapter.MARKER_ATTR}]`);
         this._trackedConv = null;
         this._menuFolderManager = null;
+        this.restoreNativeList();
     }
 
     _pollAndInject(convInfo, attempt = 0) {

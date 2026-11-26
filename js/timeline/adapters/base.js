@@ -259,6 +259,11 @@ class SiteAdapter {
     shouldHideHostScrollbar(scrollContainer, context = {}) {
         return false;
     }
+
+    /** Whether Timeline may insert a padding node into the host transcript. */
+    shouldManageScrollPadding() {
+        return true;
+    }
     
     /**
      * Check if AI is currently generating a response

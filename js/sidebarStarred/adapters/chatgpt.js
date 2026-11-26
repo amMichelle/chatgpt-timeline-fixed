@@ -24,27 +24,49 @@ class ChatGPTSidebarStarredAdapter extends BaseSidebarStarredAdapter {
     }
 
     findSidebarContainer() {
-        // 分组容器在折叠态也保留，用它反查 scrollport；#history 折叠时会被卸载，仅作兜底
-        const section = document.querySelector('.group\\/sidebar-expando-section');
-        if (section?.parentElement) return section.parentElement;
-        const history = document.getElementById('history');
-        return history?.parentElement?.parentElement || window.AITChatGPTEntryRollout?.sidebar()?.parent || null;
+        return this.findInsertionPoint()?.parent || null;
     }
 
     findInsertionPoint() {
+        const points = this._insertionPoints();
+        return typeof this._preferVisibleInsertionPoint === 'function'
+            ? this._preferVisibleInsertionPoint(points)
+            : points.next().value || null;
+    }
+
+    *_insertionPoints() {
+        // 新版可能同时保留隐藏旧副本。沿稳定 section 向上寻找实际滚动容器，
+        // 再优先选择可见候选，避免把收藏树插进隐藏的 React 子树。
+        for (const section of document.querySelectorAll('nav [data-app-action-sidebar-section]')) {
+            const nav = section.closest('nav');
+            let reference = section;
+            while (reference.parentElement && reference.parentElement !== nav) {
+                const parent = reference.parentElement;
+                if (parent.classList.contains('overflow-y-auto')) {
+                    yield { parent, reference, position: 'before' };
+                    break;
+                }
+                reference = parent;
+            }
+        }
+
         // 分组容器（已置顶/最近）在展开与折叠状态都存在、class 稳定；不依赖 #history（折叠时被卸载）。
         // 插到第一个分组之前：有置顶时是「已置顶」，无置顶时即「最近」，始终位于置顶与历史记录之上。
-        const sections = document.querySelectorAll('.group\\/sidebar-expando-section');
-        if (sections.length && sections[0].parentElement) {
-            return { parent: sections[0].parentElement, reference: sections[0], position: 'before' };
+        for (const section of document.querySelectorAll('.group\\/sidebar-expando-section')) {
+            if (section.parentElement) {
+                yield { parent: section.parentElement, reference: section, position: 'before' };
+            }
         }
 
         // 兜底：无分组容器（结构大改）时退回到 #history 父容器之前
-        const history = document.getElementById('history');
-        if (history?.parentElement?.parentElement) {
-            return { parent: history.parentElement.parentElement, reference: history.parentElement, position: 'before' };
+        for (const history of document.querySelectorAll('#history')) {
+            if (history.parentElement?.parentElement) {
+                yield { parent: history.parentElement.parentElement, reference: history.parentElement, position: 'before' };
+            }
         }
-        return window.AITChatGPTEntryRollout?.sidebar() || null;
+
+        const rollout = window.AITChatGPTEntryRollout?.sidebar();
+        if (rollout) yield rollout;
     }
 
     getPlatformClass() {
@@ -64,7 +86,13 @@ class ChatGPTSidebarStarredAdapter extends BaseSidebarStarredAdapter {
     // ==================== 侧边栏收藏标记 ====================
 
     getConversationElements() {
-        return document.querySelectorAll('#history a[data-sidebar-item]');
+        return document.querySelectorAll(
+            '#history a[data-sidebar-item], nav .sidebar-item a[data-interactive-row-link]:has([data-thread-title])'
+        );
+    }
+
+    getHideTarget(convEl) {
+        return convEl.closest('.sidebar-item') || convEl;
     }
 
     getConversationUrlPath(convEl) {
@@ -73,7 +101,7 @@ class ChatGPTSidebarStarredAdapter extends BaseSidebarStarredAdapter {
 
     injectStarIcon(convEl) {
         if (convEl.querySelector(`[${BaseSidebarStarredAdapter.STAR_ICON_ATTR}]`)) return;
-        const truncate = convEl.querySelector('.truncate');
+        const truncate = convEl.querySelector('[data-thread-title]') || convEl.querySelector('.truncate');
         const row = truncate?.parentElement;
         if (!row) return;
 

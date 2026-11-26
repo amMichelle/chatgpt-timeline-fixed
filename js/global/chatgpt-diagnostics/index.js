@@ -135,7 +135,7 @@
     }
     let lastFeatureSignature = "";
     function featureSnapshot(stage) {
-        if (world !== 'ISOLATED') return;
+        if (!verbose || world !== 'ISOLATED') return;
         try {
             const prompt = window.smartEnterManager?.promptButtonManager;
             const state = { settings: { ...featureSettings },
@@ -181,6 +181,7 @@
         } catch (err) { error('features.settings', err); }
     }
     function domSnapshot(stage) {
+        if (!verbose) return;
         featureSnapshot(stage);
         try {
             const count = selector => document.querySelectorAll(selector).length;
@@ -277,6 +278,7 @@
         } catch { return null; }
     }
     function observeOtherTransports() {
+        const cleanups = [];
         try {
             const seen = new Set();
             const resources = list => {
@@ -295,14 +297,15 @@
             if (typeof PerformanceObserver !== 'undefined') {
                 const observer = new PerformanceObserver(list => resources(list.getEntries()));
                 observer.observe({ type: 'resource', buffered: true });
-                setTimeout(() => observer.disconnect(), 180000);
+                const timer = setTimeout(() => observer.disconnect(), 180000);
+                cleanups.push(() => { clearTimeout(timer); observer.disconnect(); });
             }
         } catch (err) { error('resource-observer', err); }
         try {
             const originalOpen = XMLHttpRequest.prototype.open;
             let sequence = 0, samples = 0;
             const pending = new WeakMap();
-            XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+            const diagnosticOpen = function(method, url, ...rest) {
                 const previous = pending.get(this);
                 if (previous) this.removeEventListener('loadend', previous);
                 pending.delete(this);
@@ -332,8 +335,17 @@
                 }
                 return result;
             };
+            XMLHttpRequest.prototype.open = diagnosticOpen;
+            cleanups.push(() => {
+                if (XMLHttpRequest.prototype.open === diagnosticOpen) {
+                    XMLHttpRequest.prototype.open = originalOpen;
+                }
+            });
             log('network.xhr-observer-installed');
         } catch (err) { error('xhr-observer-install', err); }
+        return () => cleanups.splice(0).reverse().forEach(cleanup => {
+            try { cleanup(); } catch {}
+        });
     }
     function exportReport() {
         document.dispatchEvent(new CustomEvent('ait-gpt-diag-snapshot-request'));
@@ -348,48 +360,104 @@
             if (record.world === 'ISOLATED' && typeof record.event === 'string') remember(record);
         } catch {}
     });
-    window.AITGPTDiagnostics = {
-        get verbose() { return verbose; },
-        setVerbose(value) { verbose = value === true; log('diagnostics-verbose', { enabled: verbose }); },
-        log, error, type, shape, domSnapshot, featureSnapshot, readResponseSample, export: exportReport
-    };
-    log('diagnostics-start', { revision: 7, ready: document.readyState });
-    if (world === 'MAIN' && verbose) observeOtherTransports();
-    window.addEventListener('error', e => error('uncaught-' + world, e.error));
-    window.addEventListener('unhandledrejection', e => error('unhandled-promise-' + world, e.reason));
-    if (world === 'ISOLATED') {
+    let verboseCleanup = null;
+    const enableVerboseDiagnostics = () => {
+        if (!verbose || verboseCleanup) return;
+        if (world === 'MAIN') {
+            verboseCleanup = observeOtherTransports();
+            return;
+        }
+        if (world !== 'ISOLATED') return;
+        const cleanups = [];
         void readFeatureSettings();
-        chrome.storage?.onChanged?.addListener(changes => {
-            if (['promptButtonPlatformSettings', 'sidebarStarredPlatformSettings', 'conversationExportPlatformSettings', 'timelinePlatformSettings'].some(key => key in changes)) void readFeatureSettings();
-        });
+        const storageHandler = changes => {
+            if (['promptButtonPlatformSettings', 'sidebarStarredPlatformSettings', 'conversationExportPlatformSettings', 'timelinePlatformSettings']
+                .some(key => key in changes)) void readFeatureSettings();
+        };
+        chrome.storage?.onChanged?.addListener(storageHandler);
+        cleanups.push(() => chrome.storage?.onChanged?.removeListener(storageHandler));
         let featureTimer = null;
         const scheduleFeatures = () => {
-            if (featureTimer !== null) return;
-            featureTimer = setTimeout(() => { featureTimer = null; featureSnapshot('ui-change'); }, 2000);
+            if (!verbose || featureTimer !== null) return;
+            featureTimer = setTimeout(() => {
+                featureTimer = null;
+                featureSnapshot('ui-change');
+            }, 2000);
         };
         window.addEventListener('resize', scheduleFeatures);
+        cleanups.push(() => window.removeEventListener('resize', scheduleFeatures));
+        let featureObserver = null;
         const observeFeatures = () => {
-            if (!document.body) return;
-            const observer = new MutationObserver(scheduleFeatures);
-            observer.observe(document.body, { subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'style', 'hidden', 'aria-expanded'] });
-            setTimeout(() => observer.disconnect(), 180000);
+            if (!verbose || !document.body || featureObserver) return;
+            featureObserver = new MutationObserver(scheduleFeatures);
+            featureObserver.observe(document.body, { subtree: true, childList: true, attributes: true,
+                attributeFilter: ['class', 'style', 'hidden', 'aria-expanded'] });
         };
         if (document.body) observeFeatures();
         else document.addEventListener('DOMContentLoaded', observeFeatures, { once: true });
+        cleanups.push(() => {
+            document.removeEventListener('DOMContentLoaded', observeFeatures);
+            featureObserver?.disconnect();
+            if (featureTimer !== null) clearTimeout(featureTimer);
+        });
         let scrollTimer = null, lastScrollSnapshot = -Infinity;
-        document.addEventListener('scroll', event => {
-            if (event.target !== window.timelineManager?.scrollContainer) return;
+        const scrollHandler = event => {
+            if (!verbose || event.target !== window.timelineManager?.scrollContainer) return;
             if (scrollTimer !== null) clearTimeout(scrollTimer);
             scrollTimer = setTimeout(() => {
                 scrollTimer = null;
-                if (performance.now() - lastScrollSnapshot < 5000) return;
+                if (!verbose || performance.now() - lastScrollSnapshot < 5000) return;
                 lastScrollSnapshot = performance.now();
                 domSnapshot('scroll-settled');
             }, 700);
-        }, { capture: true, passive: true });
-        document.addEventListener('ait-gpt-diag-snapshot-request', () => domSnapshot('export-isolated'));
+        };
+        document.addEventListener('scroll', scrollHandler, { capture: true, passive: true });
+        cleanups.push(() => {
+            document.removeEventListener('scroll', scrollHandler, { capture: true });
+            if (scrollTimer !== null) clearTimeout(scrollTimer);
+        });
+        const snapshotHandler = () => domSnapshot('export-isolated');
+        const routeHandler = () => domSnapshot('route-change');
+        document.addEventListener('ait-gpt-diag-snapshot-request', snapshotHandler);
+        window.addEventListener('url:change', routeHandler);
+        cleanups.push(() => {
+            document.removeEventListener('ait-gpt-diag-snapshot-request', snapshotHandler);
+            window.removeEventListener('url:change', routeHandler);
+        });
+        const timers = [0, 5000, 15000, 30000, 60000, 120000]
+            .map(delay => setTimeout(() => domSnapshot(`load-${delay}`), delay));
+        cleanups.push(() => timers.forEach(clearTimeout));
         try { log('extension-version', { version: chrome.runtime.getManifest().version }); } catch {}
-        for (const delay of [0, 5000, 15000, 30000, 60000, 120000]) setTimeout(() => domSnapshot(`load-${delay}`), delay);
-        window.addEventListener('url:change', () => domSnapshot('route-change'));
-    }
+        verboseCleanup = () => cleanups.splice(0).reverse().forEach(cleanup => {
+            try { cleanup(); } catch {}
+        });
+    };
+    const applyVerbose = (value, broadcast = true) => {
+        const next = value === true;
+        if (next === verbose && (next ? !!verboseCleanup : !verboseCleanup)) return;
+        verbose = next;
+        if (verbose) enableVerboseDiagnostics();
+        else {
+            verboseCleanup?.();
+            verboseCleanup = null;
+        }
+        log('diagnostics-verbose', { enabled: verbose });
+        if (broadcast) {
+            document.dispatchEvent(new CustomEvent('ait-gpt-diag-verbose', {
+                detail: verbose ? '1' : '0'
+            }));
+        }
+    };
+    window.AITGPTDiagnostics = {
+        get verbose() { return verbose; },
+        setVerbose(value) { applyVerbose(value); },
+        log, error, type, shape, domSnapshot, featureSnapshot, readResponseSample, export: exportReport
+    };
+    log('diagnostics-start', { revision: 7, ready: document.readyState });
+    document.addEventListener('ait-gpt-diag-verbose', event => {
+        applyVerbose(event.detail === '1', false);
+    });
+    if (verbose) enableVerboseDiagnostics();
+    window.addEventListener('error', e => error('uncaught-' + world, e.error));
+    window.addEventListener('unhandledrejection', e => error('unhandled-promise-' + world, e.reason));
 })();

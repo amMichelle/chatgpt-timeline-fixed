@@ -55,6 +55,8 @@ class TimelineManager {
         // Event handlers
         this.onTimelineBarClick = null;
         this.onScroll = null;
+        this.onUserScrollIntent = null;
+        this.onNavigationInterruptKeyDown = null;
         this.onTimelineBarOver = null;
         this.onTimelineBarOut = null;
         this.onTimelineBarFocusIn = null;
@@ -173,6 +175,7 @@ class TimelineManager {
 
         // ✅ 健康检查定时器
         this.healthCheckInterval = null;
+        this._healthReinitRequested = false;
 
         this.aiCompleteAudio = null;
     }
@@ -1811,10 +1814,19 @@ class TimelineManager {
         this.healthCheckInterval = setInterval(() => {
             // 检查容器是否仍然连接在文档中
             const isContainerValid = this.conversationContainer && this.conversationContainer.isConnected;
+            const isTimelineUiValid = this.ui.wrapper?.isConnected && this.ui.timelineBar?.isConnected;
             
             if (!isContainerValid) {
                 // 容器失效，尝试更新
                 this.ensureContainersUpToDate();
+            }
+            if (!isTimelineUiValid && !this._healthReinitRequested) {
+                this._healthReinitRequested = true;
+                window.AITGPTDiagnostics?.log('timeline.health', {
+                    stage: 'ui-disconnected', wrapper: !!this.ui.wrapper?.isConnected,
+                    bar: !!this.ui.timelineBar?.isConnected
+                });
+                window.dispatchEvent(new CustomEvent('ait-timeline-health-reinit'));
             }
         }, 5000); // 每 5 秒检查一次
     }
@@ -1847,6 +1859,9 @@ class TimelineManager {
         // Detach old listeners
         if (this.scrollContainer && this.onScroll) {
             try { this.scrollContainer.removeEventListener('scroll', this.onScroll); } catch {}
+            try { this.scrollContainer.removeEventListener('wheel', this.onUserScrollIntent); } catch {}
+            try { this.scrollContainer.removeEventListener('touchstart', this.onUserScrollIntent); } catch {}
+            try { this.scrollContainer.removeEventListener('pointerdown', this.onUserScrollIntent); } catch {}
         }
         try { this.mutationObserver?.disconnect(); } catch {}
         try { this.intersectionObserver?.disconnect(); } catch {}
@@ -1879,6 +1894,11 @@ class TimelineManager {
         // Reattach scroll listener
         this.onScroll = () => this.scheduleScrollSync();
         this.scrollContainer.addEventListener('scroll', this.onScroll, { passive: true });
+        if (this.onUserScrollIntent) {
+            this.scrollContainer.addEventListener('wheel', this.onUserScrollIntent, { passive: true });
+            this.scrollContainer.addEventListener('touchstart', this.onUserScrollIntent, { passive: true });
+            this.scrollContainer.addEventListener('pointerdown', this.onUserScrollIntent, { passive: true });
+        }
 
         // Recreate IntersectionObserver with new root
         this.intersectionObserver = new IntersectionObserver(entries => {
@@ -2110,6 +2130,27 @@ class TimelineManager {
         // Listen to container scroll to keep marker active state in sync
         this.onScroll = () => this.scheduleScrollSync();
         this.scrollContainer.addEventListener('scroll', this.onScroll, { passive: true });
+        this.onUserScrollIntent = () => {
+            if (this.adapter?.platformId !== 'chatgpt' || !this._programmaticNavigation) return;
+            const task = this._programmaticNavigation;
+            const taskId = task.sequence;
+            this.adapter.cancelPendingTimelineJump?.('user-scroll');
+            this._navigationSequence++;
+            this._programmaticNavigation = null;
+            window.AITGPTDiagnostics?.log('timeline.navigation', {
+                stage: 'navigation-cancelled', taskId, reason: 'user-scroll'
+            });
+            this.scheduleScrollSync();
+        };
+        this.scrollContainer.addEventListener('wheel', this.onUserScrollIntent, { passive: true });
+        this.scrollContainer.addEventListener('touchstart', this.onUserScrollIntent, { passive: true });
+        this.scrollContainer.addEventListener('pointerdown', this.onUserScrollIntent, { passive: true });
+        this.onNavigationInterruptKeyDown = event => {
+            if (!this._programmaticNavigation) return;
+            const keys = new Set(['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ']);
+            if (keys.has(event.key)) this.onUserScrollIntent();
+        };
+        document.addEventListener('keydown', this.onNavigationInterruptKeyDown, true);
 
         // Tooltip interactions (delegated)
         this.onTimelineBarOver = (e) => {
@@ -2365,7 +2406,8 @@ class TimelineManager {
         window.timelineManager = this;
         
         // ✅ 初始化时间记录器（解耦模块，确保 adapter 已就绪）
-        if (typeof initChatTimeRecorder === 'function') {
+        if (!this.adapter?.isTransientConversation?.()
+            && typeof initChatTimeRecorder === 'function') {
             initChatTimeRecorder();
         }
     }
@@ -2502,13 +2544,59 @@ class TimelineManager {
         const marker = this.markers?.find(item => item.id === markerId) || this.markerMap?.get(markerId);
         return marker ? this.navigateToMarker(marker, duration) : false;
     }
-    
+
     /**
      * ✅ 对外 API：滚动到最后一个节点（底部）
      * @returns {boolean} - 是否成功滚动
      */
     scrollToLast() {
         return this.scrollToIndex(-1);
+    }
+
+    /** Scroll to the actual conversation bottom; this is deliberately separate
+     * from the last question marker, whose meaning must remain unchanged. */
+    scrollToConversationBottom() {
+        const container = this.adapter?.platformId === 'chatgpt'
+            ? this.adapter.resolveTimelineScrollContainer?.(null, this.conversationContainer) || this.scrollContainer
+            : this.scrollContainer;
+        if (!container) return false;
+        if (this.adapter?.platformId === 'chatgpt') {
+            this.adapter.cancelPendingTimelineJump?.('conversation-bottom');
+            this._navigationSequence = (this._navigationSequence || 0) + 1;
+        }
+        const sequence = this._navigationSequence;
+        if (this.adapter?.platformId === 'chatgpt') {
+            this._programmaticNavigation = {
+                sequence, markerId: null, kind: 'conversation-bottom', startedAt: Date.now()
+            };
+        }
+        const isCurrent = () => !this._destroyed && sequence === this._navigationSequence;
+        const preventAutoScroll = window.__aitPreventAutoScroll;
+        const navigationId = preventAutoScroll?.notifyUserNavigation?.({ durationMs: 1200 });
+        void (async () => {
+            const maxTop = () => Math.max(0, container.scrollHeight - container.clientHeight);
+            container.scrollTop = maxTop();
+            let previousHeight = container.scrollHeight;
+            let stableSamples = 0;
+            const deadline = Date.now() + 700;
+            while (isCurrent() && Date.now() < deadline && stableSamples < 3) {
+                await new Promise(resolve => setTimeout(resolve, 60));
+                const height = container.scrollHeight;
+                stableSamples = Math.abs(height - previousHeight) <= 2 ? stableSamples + 1 : 0;
+                previousHeight = height;
+            }
+            if (!isCurrent()) return;
+            const latestMax = maxTop();
+            if (latestMax - container.scrollTop > 3) container.scrollTop = latestMax;
+        })().finally(() => {
+            if (navigationId !== undefined) {
+                preventAutoScroll?.settleUserNavigation?.({ id: navigationId });
+            }
+            if (this._programmaticNavigation?.sequence === sequence) {
+                this._programmaticNavigation = null;
+            }
+        });
+        return true;
     }
     
     /**
@@ -2521,13 +2609,21 @@ class TimelineManager {
     
     async navigateToMarker(marker, duration = 600) {
         if (!marker || this._destroyed) return false;
-        if (this.adapter.platformId === 'chatgpt') this.adapter.cancelPendingTimelineJump?.('new-navigation');
+        if (this.adapter.platformId === 'chatgpt') {
+            this.adapter.cancelPendingTimelineJump?.('new-navigation');
+        }
         this._navigationSequence = (Number.isFinite(this._navigationSequence) ? this._navigationSequence : 0) + 1;
         const navigationSequence = this._navigationSequence;
         const isCurrent = () => !this._destroyed && navigationSequence === this._navigationSequence;
         const isChatGPT = this.adapter.platformId === 'chatgpt';
+        let navigationDeadline = Date.now() + 9000;
+        const searchBudget = { remaining: 8 };
+        const preventAutoScroll = isChatGPT ? window.__aitPreventAutoScroll : null;
+        let navigationTrustId = preventAutoScroll?.notifyUserNavigation?.({ durationMs: 9000 });
         if (isChatGPT) {
-            this._programmaticNavigation = { sequence: navigationSequence, markerId: marker.id, startedAt: Date.now() };
+            this._programmaticNavigation = {
+                sequence: navigationSequence, markerId: marker.id, startedAt: Date.now()
+            };
             this.pendingActiveId = null;
             if (this.activeChangeTimer) {
                 clearTimeout(this.activeChangeTimer);
@@ -2535,6 +2631,7 @@ class TimelineManager {
             }
         }
         const scrollTopBefore = this.scrollContainer?.scrollTop || 0;
+        const scrollHeightBefore = this.scrollContainer?.scrollHeight || 0;
         window.AITGPTDiagnostics?.log('timeline.navigation', {
             stage: 'click-received', taskId: navigationSequence, userOrder: marker.userOrder || 0,
             identityAvailable: !!(marker.messageId || marker.sourceId || marker.aliasIds?.length),
@@ -2546,6 +2643,10 @@ class TimelineManager {
             navigationSequence
         });
         let succeeded = false;
+        // The final visibility check and the delayed settle check share one
+        // evidence-based recovery. This covers a target that was resolved by
+        // stable ID and then displaced by the host virtualizer's compensation.
+        let displacementRecoveryUsed = false;
         try {
             let targetElement = this.adapter.resolveTimelineElement?.(marker) || null;
             window.AITGPTDiagnostics?.log('timeline.navigation', {
@@ -2556,7 +2657,34 @@ class TimelineManager {
                     scrollContainer: this.scrollContainer,
                     conversationContainer: this.conversationContainer,
                     isCurrent,
-                    taskId: navigationSequence
+                    taskId: navigationSequence,
+                    navigationDeadline,
+                    searchBudget,
+                    // Renew only on verified earlier native Keys; keep the
+                    // geometry and trusted-scroll windows on the same deadline.
+                    extendHistoryNavigation: deadline => {
+                        if (!isCurrent() || !Number.isFinite(deadline) || deadline <= navigationDeadline) return;
+                        navigationDeadline = deadline;
+                        const renewedId = preventAutoScroll?.notifyUserNavigation?.({
+                            durationMs: Math.max(1, deadline - Date.now())
+                        });
+                        if (renewedId !== undefined) navigationTrustId = renewedId;
+                    },
+                    // Align an intermediate history edge without committing active Q.
+                    alignHistoryBoundary: async (boundaryMarker, tracker) => {
+                        const boundaryCurrent = () => isCurrent() && Date.now() < navigationDeadline
+                            && !tracker.hasRelevantEvent();
+                        const geometry = await this._waitForChatGPTTargetGeometry(boundaryMarker, boundaryCurrent, {
+                            observeCompensation: true, deadline: navigationDeadline
+                        });
+                        if (!boundaryCurrent() || !geometry.element || !geometry.stable) return false;
+                        await this.smoothScrollTo(geometry.element, 0, {
+                            isCurrent: boundaryCurrent, skipReveal: true, navigationTrustId
+                        });
+                        if (!boundaryCurrent()) return false;
+                        const resolved = this.adapter.resolveTimelineElement?.(boundaryMarker);
+                        return this._isElementVisibleInScrollContainer(resolved);
+                    }
                 });
             }
             if (!isCurrent() || !targetElement?.isConnected) {
@@ -2568,20 +2696,69 @@ class TimelineManager {
             }
             marker.element = targetElement;
             marker.virtual = false;
+            const navigationStrategy = marker._aitNavigationStrategy || 'direct-dom';
+            delete marker._aitNavigationStrategy;
+            const usedNativeKey = navigationStrategy === 'native-turn-key';
             if (isChatGPT) {
                 const liveScrollContainer = this.adapter.resolveTimelineScrollContainer?.(
                     targetElement, this.conversationContainer) || null;
                 this._adoptChatGPTScrollContainer(liveScrollContainer);
             }
-            const scrolled = await this.smoothScrollTo(targetElement,
-                isChatGPT ? 0 : duration, { isCurrent });
+            let nativeGeometryStable = true;
+            if (usedNativeKey) {
+                const scrollDistance = Math.abs((this.scrollContainer?.scrollTop || 0) - scrollTopBefore);
+                const heightChanged = Math.abs((this.scrollContainer?.scrollHeight || 0) - scrollHeightBefore) > 8;
+                const longDistance = scrollDistance > Math.max(800, (this.scrollContainer?.clientHeight || 0) * 1.5)
+                    || heightChanged;
+                const geometry = await this._waitForChatGPTTargetGeometry(marker, isCurrent, {
+                    observeCompensation: longDistance,
+                    deadline: navigationDeadline
+                });
+                if (!isCurrent()) return false;
+                let settledGeometry = geometry;
+                if (geometry.element) {
+                    targetElement = geometry.element;
+                } else if (!displacementRecoveryUsed) {
+                    displacementRecoveryUsed = true;
+                    const recovered = await this.adapter.recoverDisplacedTimelineMarker?.(marker, {
+                        scrollContainer: this.scrollContainer,
+                        conversationContainer: this.conversationContainer,
+                        isCurrent,
+                        taskId: navigationSequence,
+                        navigationDeadline,
+                        searchBudget
+                    });
+                    if (!isCurrent() || !recovered) return false;
+                    targetElement = recovered;
+                    settledGeometry = await this._waitForChatGPTTargetGeometry(marker, isCurrent, {
+                        observeCompensation: false,
+                        deadline: navigationDeadline
+                    });
+                    if (!isCurrent()) return false;
+                    if (settledGeometry.element) targetElement = settledGeometry.element;
+                }
+                nativeGeometryStable = settledGeometry.stable;
+            }
+            // 恢复已验证版本的最终定位：无论目标由直接匹配、缓存、原生
+            // Key 或有界搜索找到，都统一使用真实提问正文完成精准对齐。
+            const scrolled = await this.smoothScrollTo(
+                targetElement, isChatGPT ? 0 : duration,
+                {
+                    isCurrent,
+                    skipReveal: usedNativeKey,
+                    skipCorrection: usedNativeKey && !nativeGeometryStable,
+                    navigationTrustId
+                });
             if (!isCurrent()) return false;
             const resolved = this.adapter.resolveTimelineElement?.(marker) || null;
             // ChatGPT virtualized nodes are reusable. A connected old element
             // is not proof after scrolling; the stable message ID must resolve
             // again from the current DOM before success can be reported.
-            const verifiedElement = isChatGPT ? resolved : (resolved?.isConnected ? resolved : targetElement);
+            let verifiedElement = isChatGPT ? resolved : (resolved?.isConnected ? resolved : targetElement);
             let visible = this._isElementVisibleInScrollContainer(verifiedElement);
+            if (visible && isChatGPT && typeof verifiedElement?.getBoundingClientRect === 'function') {
+                visible = this._isChatGPTTargetPreciselyAligned(verifiedElement);
+            }
             const correctionContainer = isChatGPT
                 ? this.adapter.resolveTimelineScrollContainer?.(verifiedElement, this.conversationContainer) || null
                 : this.scrollContainer;
@@ -2590,11 +2767,39 @@ class TimelineManager {
                 const targetRect = this._getMessageRect(verifiedElement);
                 const scrollOffset = this.adapter?.getScrollOffset?.() ?? 30;
                 correctionContainer.scrollTop += targetRect.top - containerRect.top - scrollOffset;
-                await new Promise(resolve => requestAnimationFrame(() => resolve()));
+                await new Promise(resolve => requestAnimationFrame(resolve));
                 if (!isCurrent()) return false;
                 const resolvedAfterCorrection = this.adapter.resolveTimelineElement?.(marker) || null;
-                if (isChatGPT && resolvedAfterCorrection !== verifiedElement) return false;
-                visible = this._isElementVisibleInScrollContainer(verifiedElement);
+                if (isChatGPT && resolvedAfterCorrection !== verifiedElement) {
+                    verifiedElement = resolvedAfterCorrection;
+                    visible = false;
+                } else {
+                    visible = this._isElementVisibleInScrollContainer(verifiedElement);
+                    if (visible && isChatGPT) {
+                        visible = this._isChatGPTTargetPreciselyAligned(verifiedElement);
+                    }
+                }
+            }
+            if (!visible && isChatGPT && isCurrent() && !displacementRecoveryUsed) {
+                displacementRecoveryUsed = true;
+                const recovered = await this.adapter.recoverDisplacedTimelineMarker?.(marker, {
+                    scrollContainer: this.scrollContainer,
+                    conversationContainer: this.conversationContainer,
+                    isCurrent,
+                    taskId: navigationSequence,
+                    navigationDeadline,
+                    searchBudget
+                });
+                if (!isCurrent()) return false;
+                if (recovered) {
+                    await this.smoothScrollTo(recovered, 0, { isCurrent, navigationTrustId });
+                    if (!isCurrent()) return false;
+                    verifiedElement = this.adapter.resolveTimelineElement?.(marker) || null;
+                    visible = this._isElementVisibleInScrollContainer(verifiedElement);
+                    if (visible && typeof verifiedElement?.getBoundingClientRect === 'function') {
+                        visible = this._isChatGPTTargetPreciselyAligned(verifiedElement);
+                    }
+                }
             }
             window.AITGPTDiagnostics?.log('timeline.navigation', {
                 stage: visible ? 'final-visible-verified' : 'final-visible-failed',
@@ -2614,28 +2819,23 @@ class TimelineManager {
             });
             return true;
         } finally {
+            if (navigationTrustId !== undefined) {
+                preventAutoScroll?.settleUserNavigation?.({ id: navigationTrustId });
+            }
             if (isChatGPT && this._programmaticNavigation?.sequence === navigationSequence) {
-                this._programmaticNavigation = null;
                 if (succeeded && isCurrent()) {
                     const previousId = this.activeTurnId;
                     this.activeTurnId = marker.id;
                     this.pendingActiveId = null;
                     this.updateActiveDotUI();
                     if (previousId !== marker.id) this._emitActiveChange(previousId, marker.id);
+                    this._recalcMarkerPositions();
+                    this.updateIntersectionObserverTargets();
                     this.syncTimelineTrackToMain();
                     this.updateVirtualRangeAndRender();
-                    setTimeout(() => {
-                        if (this._destroyed || navigationSequence !== this._navigationSequence) return;
-                        const settledElement = this.adapter.resolveTimelineElement?.(marker) || null;
-                        const settledVisible = this._isElementVisibleInScrollContainer(settledElement);
-                        window.AITGPTDiagnostics?.log('timeline.navigation', {
-                            stage: settledVisible ? 'navigation-settle-verified' : 'navigation-displaced',
-                            taskId: navigationSequence,
-                            userOrder: marker.userOrder || 0,
-                            reason: settledVisible ? '' : 'page-scroll-after-success'
-                        });
-                    }, 160);
+                    this._programmaticNavigation = null;
                 } else if (isCurrent()) {
+                    this._programmaticNavigation = null;
                     this.scheduleScrollSync();
                 }
             }
@@ -2652,9 +2852,15 @@ class TimelineManager {
         if (this.adapter?.platformId !== 'chatgpt' || !container || container === this.scrollContainer) return;
         if (container.isConnected === false) return;
         try { this.scrollContainer?.removeEventListener?.('scroll', this.onScroll); } catch {}
+        try { this.scrollContainer?.removeEventListener?.('wheel', this.onUserScrollIntent); } catch {}
+        try { this.scrollContainer?.removeEventListener?.('touchstart', this.onUserScrollIntent); } catch {}
+        try { this.scrollContainer?.removeEventListener?.('pointerdown', this.onUserScrollIntent); } catch {}
         this.scrollContainer = container;
         this.isScrollContainerFallback = false;
         try { this.scrollContainer.addEventListener?.('scroll', this.onScroll, { passive: true }); } catch {}
+        try { this.scrollContainer.addEventListener?.('wheel', this.onUserScrollIntent, { passive: true }); } catch {}
+        try { this.scrollContainer.addEventListener?.('touchstart', this.onUserScrollIntent, { passive: true }); } catch {}
+        try { this.scrollContainer.addEventListener?.('pointerdown', this.onUserScrollIntent, { passive: true }); } catch {}
 
         if (this.intersectionObserver && typeof IntersectionObserver === 'function') {
             try { this.intersectionObserver.disconnect(); } catch {}
@@ -2668,7 +2874,6 @@ class TimelineManager {
             this.updateIntersectionObserverTargets();
         }
     }
-
     _isElementVisibleInScrollContainer(targetElement) {
         if (!targetElement?.isConnected) return false;
         const isChatGPT = this.adapter?.platformId === 'chatgpt';
@@ -2687,6 +2892,66 @@ class TimelineManager {
             && targetRect.top < containerRect.bottom - 4;
     }
 
+    _isChatGPTTargetPreciselyAligned(targetElement) {
+        if (!targetElement?.isConnected) return false;
+        const container = this.adapter.resolveTimelineScrollContainer?.(
+            targetElement, this.conversationContainer) || this.scrollContainer;
+        if (!container?.getBoundingClientRect) return false;
+        const targetRect = this._getMessageRect(targetElement);
+        if (!targetRect || !(targetRect.height > 0 || targetRect.bottom > targetRect.top)) return false;
+        const containerRect = container.getBoundingClientRect();
+        const expected = Math.max(20, Math.min(40, this.adapter?.getScrollOffset?.() ?? 30));
+        return Math.abs((targetRect.top - containerRect.top) - expected) <= 12;
+    }
+
+    async _waitForChatGPTTargetGeometry(marker, isCurrent, options = {}) {
+        const startedAt = Date.now();
+        const observeCompensation = options.observeCompensation === true;
+        const requestedDeadline = Number(options.deadline) || Infinity;
+        const timeoutMs = observeCompensation ? 1400 : 800;
+        const deadline = Math.min(requestedDeadline, startedAt + timeoutMs);
+        const quietWindowMs = observeCompensation ? 420 : 180;
+        const minimumElapsedMs = observeCompensation ? 0 : 360;
+        let previous = null;
+        let stableSamples = 0;
+        let latestElement = null;
+        let lastGeometryChangeAt = startedAt;
+        while (isCurrent() && Date.now() < deadline) {
+            const element = this.adapter.resolveTimelineElement?.(marker) || null;
+            if (element && typeof element.getBoundingClientRect !== 'function') {
+                return { element, stable: true };
+            }
+            const container = this.adapter.resolveTimelineScrollContainer?.(
+                element, this.conversationContainer) || this.scrollContainer;
+            const rect = element ? this._getMessageRect(element) : null;
+            if (element && rect && container && rect.height > 0) {
+                latestElement = element;
+                const sample = { top: rect.top, height: rect.height,
+                    scrollTop: container.scrollTop, scrollHeight: container.scrollHeight };
+                const unchanged = previous
+                    && Math.abs(sample.top - previous.top) <= 2
+                    && Math.abs(sample.height - previous.height) <= 2
+                    && Math.abs(sample.scrollTop - previous.scrollTop) <= 2
+                    && Math.abs(sample.scrollHeight - previous.scrollHeight) <= 4;
+                stableSamples = unchanged ? stableSamples + 1 : 0;
+                if (!unchanged) lastGeometryChangeAt = Date.now();
+                previous = sample;
+                if (Date.now() - startedAt >= minimumElapsedMs && stableSamples >= 2
+                    && Date.now() - lastGeometryChangeAt >= quietWindowMs) {
+                    return { element, stable: true };
+                }
+            } else {
+                latestElement = null;
+                stableSamples = 0;
+                previous = null;
+                lastGeometryChangeAt = Date.now();
+            }
+            await new Promise(resolve => setTimeout(resolve, 60));
+        }
+        const finalElement = this.adapter.resolveTimelineElement?.(marker) || null;
+        return { element: finalElement, stable: false };
+    }
+
     smoothScrollTo(targetElement, duration = 600, options = {}) {
         if (!targetElement) return Promise.resolve(false);
         const canUseNativeChatGPTScroll = this.adapter?.platformId === 'chatgpt'
@@ -2697,7 +2962,13 @@ class TimelineManager {
         const isCurrent = typeof options.isCurrent === 'function' ? options.isCurrent : () => true;
 
         const preventAutoScroll = window.__aitPreventAutoScroll;
-        const navigationId = preventAutoScroll?.notifyUserNavigation?.({ durationMs: duration + 150 });
+        const ownsNavigationTrust = options.navigationTrustId === undefined;
+        const navigationId = ownsNavigationTrust
+            ? preventAutoScroll?.notifyUserNavigation?.({ durationMs: duration + 150 })
+            : options.navigationTrustId;
+        const settleLocalNavigation = () => {
+            if (ownsNavigationTrust) preventAutoScroll?.settleUserNavigation?.({ id: navigationId });
+        };
 
         if (canUseNativeChatGPTScroll) {
             const rootRect = targetElement.getBoundingClientRect?.();
@@ -2718,21 +2989,23 @@ class TimelineManager {
                 ? this._getMessageRect(targetElement)
                 : nativeTarget.getBoundingClientRect();
             const beforeRect = getAnchorRect();
-            try {
-                nativeTarget.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'instant' });
-            } catch {
-                nativeTarget.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'auto' });
+            if (!options.skipReveal) {
+                try {
+                    nativeTarget.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'instant' });
+                } catch {
+                    nativeTarget.scrollIntoView({ block: 'start', inline: 'nearest', behavior: 'auto' });
+                }
             }
             return new Promise(resolve => requestAnimationFrame(() => {
                 if (!isCurrent()) {
-                    preventAutoScroll?.settleUserNavigation?.({ id: navigationId });
+                    settleLocalNavigation();
                     resolve(false);
                     return;
                 }
                 const liveContainer = this.adapter.resolveTimelineScrollContainer?.(
                     targetElement, this.conversationContainer) || null;
                 const scrollOffset = Math.max(20, Math.min(40, this.adapter?.getScrollOffset?.() ?? 30));
-                if (liveContainer) {
+                if (liveContainer && !options.skipCorrection) {
                     const containerRect = liveContainer.getBoundingClientRect();
                     const anchorRect = getAnchorRect();
                     const correction = anchorRect.top - containerRect.top - scrollOffset;
@@ -2747,7 +3020,7 @@ class TimelineManager {
                     const finalContainerTop = finalContainer?.getBoundingClientRect?.().top ?? 0;
                     const topGap = (afterRect?.top || 0) - finalContainerTop;
                     const aligned = topGap >= 16 && topGap <= 48;
-                    preventAutoScroll?.settleUserNavigation?.({ id: navigationId });
+                    settleLocalNavigation();
                     window.AITGPTDiagnostics?.log('timeline.navigation', {
                         stage: 'native-scroll-result', moved, visible, aligned,
                         topGap: Math.round(topGap),
@@ -2777,7 +3050,7 @@ class TimelineManager {
             const finish = result => {
                 if (settled) return;
                 settled = true;
-                preventAutoScroll?.settleUserNavigation?.({ id: navigationId });
+                settleLocalNavigation();
                 resolve(result);
             };
             const animation = (currentTime) => {
@@ -3698,6 +3971,11 @@ class TimelineManager {
      */
     _updateScrollPadding(lastOffsetTop, cleanMaxScrollTop) {
         if (!this.conversationContainer) return;
+        if (this.adapter.shouldManageScrollPadding?.() === false) {
+            this.conversationContainer.querySelectorAll?.('.ait-scroll-padding').forEach(element => element.remove());
+            this._currentPadding = 0;
+            return;
+        }
         
         // ✅ 如果节点数 <= 1，不需要 padding，移除已存在的元素并返回
         if (this.markers.length <= 1) {
@@ -4013,6 +4291,8 @@ class TimelineManager {
     destroy() {
         this._destroyed = true;
         this.adapter.cancelPendingTimelineJump?.('manager-destroyed');
+        this.adapter.clearTransientTimelineData?.();
+        if (window.timelineManager === this) window.timelineManager = null;
         this._navigationSequence = (this._navigationSequence || 0) + 1;
         this._scrollAnimationSequence = (this._scrollAnimationSequence || 0) + 1;
         this._programmaticNavigation = null;
@@ -4100,6 +4380,10 @@ class TimelineManager {
         TimelineUtils.removeEventListenerSafe(this.ui.timelineBar, 'touchend', this.cancelLongPress);
         TimelineUtils.removeEventListenerSafe(this.ui.timelineBar, 'touchcancel', this.cancelLongPress);
         TimelineUtils.removeEventListenerSafe(this.scrollContainer, 'scroll', this.onScroll, { passive: true });
+        TimelineUtils.removeEventListenerSafe(this.scrollContainer, 'wheel', this.onUserScrollIntent, { passive: true });
+        TimelineUtils.removeEventListenerSafe(this.scrollContainer, 'touchstart', this.onUserScrollIntent, { passive: true });
+        TimelineUtils.removeEventListenerSafe(this.scrollContainer, 'pointerdown', this.onUserScrollIntent, { passive: true });
+        TimelineUtils.removeEventListenerSafe(document, 'keydown', this.onNavigationInterruptKeyDown, true);
         TimelineUtils.removeEventListenerSafe(this.ui.timelineBar, 'mouseover', this.onTimelineBarOver);
         TimelineUtils.removeEventListenerSafe(this.ui.timelineBar, 'mouseout', this.onTimelineBarOut);
         TimelineUtils.removeEventListenerSafe(this.ui.timelineBar, 'focusin', this.onTimelineBarFocusIn);
@@ -4161,6 +4445,8 @@ class TimelineManager {
         this.onTimelineBarOut = null;
         this.onTimelineBarFocusIn = null;
         this.onTimelineBarFocusOut = null;
+        this.onUserScrollIntent = null;
+        this.onNavigationInterruptKeyDown = null;
         // ✅ 移除：tooltip hover 事件由 GlobalTooltipManager 管理
         this.onScroll = null;
         this.onWindowResize = null;
@@ -4178,6 +4464,7 @@ class TimelineManager {
     async loadStars() {
         this.starred.clear();
         this.starredIndexes.clear();
+        if (this.adapter?.isTransientConversation?.()) return;
         try {
             // 使用完整 URL（去掉协议）筛选当前页面的收藏
             const url = location.href.replace(/^https?:\/\//, '');
@@ -4204,6 +4491,7 @@ class TimelineManager {
     async loadPins() {
         this.pinned.clear();
         this.pinnedIndexes.clear();
+        if (this.adapter?.isTransientConversation?.()) return;
         try {
             const url = location.href.replace(/^https?:\/\//, '');
             
@@ -4391,6 +4679,7 @@ class TimelineManager {
     }
 
     async saveStarItem(index, question) {
+        if (this.adapter?.isTransientConversation?.()) return;
         try {
             const urlWithoutProtocol = location.href.replace(/^https?:\/\//, '');
             const key = `chatTimelineStar:${urlWithoutProtocol}:${index}`;
@@ -4417,6 +4706,7 @@ class TimelineManager {
      * @param {string|null} folderId - 文件夹 ID
      */
     async saveStarItemWithFolder(nodeKey, question, folderId = null) {
+        if (this.adapter?.isTransientConversation?.()) return;
         try {
             const urlWithoutProtocol = location.href.replace(/^https?:\/\//, '');
             const key = `chatTimelineStar:${urlWithoutProtocol}:${nodeKey}`;
@@ -4479,6 +4769,7 @@ class TimelineManager {
     }
     
     async removeStarItem(nodeKey) {
+        if (this.adapter?.isTransientConversation?.()) return;
         try {
             const url = location.href.replace(/^https?:\/\//, '');
             const key = `chatTimelineStar:${url}:${nodeKey}`;
@@ -4489,6 +4780,7 @@ class TimelineManager {
     }
 
     async toggleStar(turnId) {
+        if (this.adapter?.isTransientConversation?.()) return { success: false, action: null };
         const id = String(turnId || '');
         if (!id) return { success: false, action: null };
         
@@ -4727,33 +5019,40 @@ class TimelineManager {
     
     // ✅ 更新收藏按钮显示状态
     async updateStarredBtnVisibility() {
-        if (this.ui.questionListBtn && this.getTimelineFeatures()?.questionList === true) {
-            this.ui.questionListBtn.style.display = 'flex';
+        const ui = this.ui;
+        if (!ui || this._destroyed) return;
+        if (ui.questionListBtn && this.getTimelineFeatures()?.questionList === true) {
+            ui.questionListBtn.style.display = 'flex';
         }
-        if (!this.ui.starredBtn) return;
+        if (!ui.starredBtn) return;
 
         // 隐藏收藏按钮（功能已合并到提问列表中）
-        this.ui.starredBtn.style.display = 'none';
+        ui.starredBtn.style.display = 'none';
 
         // 同步显示闪记按钮（受开关控制，默认开启）
-        if (this.ui.notepadBtn && this.getTimelineFeatures()?.notepad === true) {
+        if (ui.notepadBtn && this.getTimelineFeatures()?.notepad === true) {
             try {
                 const result = await chrome.storage.local.get('aitNotepadEnabled');
+                if (this._destroyed || this.ui !== ui || this.ui?.notepadBtn !== ui.notepadBtn
+                    || ui.notepadBtn?.isConnected === false) return;
                 const enabled = result.aitNotepadEnabled !== false;
-                this.ui.notepadBtn.style.display = enabled ? 'flex' : 'none';
+                ui.notepadBtn.style.display = enabled ? 'flex' : 'none';
             } catch (e) {
-                this.ui.notepadBtn.style.display = 'flex';
+                if (!this._destroyed && this.ui === ui && this.ui?.notepadBtn === ui.notepadBtn
+                    && ui.notepadBtn?.isConnected !== false) ui.notepadBtn.style.display = 'flex';
             }
         }
         
         // 根据是否有收藏数据来设置不同的颜色状态
         const hasData = await this.hasStarredData();
+        if (this._destroyed || this.ui !== ui || this.ui?.starredBtn !== ui.starredBtn
+            || ui.starredBtn?.isConnected === false) return;
         if (hasData) {
             // 有收藏记录：移除灰色类，使用橙色
-            this.ui.starredBtn.classList.remove('no-starred-data');
+            ui.starredBtn.classList.remove('no-starred-data');
         } else {
             // 没有收藏记录：添加灰色类
-            this.ui.starredBtn.classList.add('no-starred-data');
+            ui.starredBtn.classList.add('no-starred-data');
         }
     }
     
@@ -4831,6 +5130,7 @@ class TimelineManager {
      * ✅ 切换节点的标记状态
      */
     async togglePin(id) {
+        if (this.adapter?.isTransientConversation?.()) return false;
         if (!id) {
             return false;
         }

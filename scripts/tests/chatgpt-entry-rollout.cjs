@@ -27,7 +27,7 @@ function setup(html) {
     return { dom, w, logs };
 }
 {
-    const { dom, w, logs } = setup(`<main><header><div>${secret}</div></header><form><div role="textbox" contenteditable="true">${secret}</div></form></main><nav><div>${secret}</div></nav>`);
+    const { dom, w, logs } = setup(`<main><header><div data-app-shell-header-obstacle><div class="gap-toolbar-action"><button id="native-action"></button></div></div><div>${secret}</div></header><form><div role="textbox" contenteditable="true">${secret}</div></form></main><nav><div>${secret}</div></nav>`);
     const prompt = new w.PromptAdapter();
     const input = prompt.getInputElement();
     assert(input && input.closest('form'));
@@ -36,13 +36,14 @@ function setup(html) {
     assert.equal(sidebar.parent.tagName, 'NAV');
     assert.equal(sidebar.position, 'prepend');
     const header = w.AITChatHeaderActions.getInsertTarget();
-    assert.equal(header.tagName, 'HEADER');
+    assert.equal(header.id, 'native-action');
     for (const action of ['star', 'export']) {
         const button = w.document.createElement('button');
         assert(w.AITChatHeaderActions.mount(button, action));
     }
     assert.equal(w.document.querySelectorAll('.ait-chat-header-actions-native').length, 1);
-    assert.deepEqual(Array.from(header.lastElementChild.children, x => x.dataset.aitHeaderAction), ['star', 'export']);
+    assert.equal(header.previousElementSibling.className, 'ait-chat-header-actions-native');
+    assert.deepEqual(Array.from(header.previousElementSibling.children, x => x.dataset.aitHeaderAction), ['star', 'export']);
     assert(!logs.join('\n').includes(secret));
     assert(!logs.join('\n').includes('private-id'));
     dom.window.close();

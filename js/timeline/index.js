@@ -23,6 +23,22 @@ let timelineInitInFlight = null;
 let timelineInitInFlightVersion = null;
 let capturedInitListenerAttached = false;
 let capturedInitTimer = null;
+let timelineHealthListenerAttached = false;
+let bootstrapCheckInFlight = null;
+
+const CHATGPT_TIMELINE_EVIDENCE_SELECTOR = [
+    'main [data-turn-key]',
+    'main [data-content-search-turn-key]',
+    'main [data-turn-id-container]',
+    'main [data-turn][data-turn-id]',
+    'main [data-testid^="conversation-turn-"]'
+].join(',');
+
+function hasLightweightTimelineEvidence(adapter) {
+    if (adapter?.platformId !== 'chatgpt') return true;
+    return adapter.hasTimelineData?.() === true
+        || document.querySelector(CHATGPT_TIMELINE_EVIDENCE_SELECTOR) !== null;
+}
 
 // Check if current route is a conversation page (uses adapter)
 async function resolveCurrentAdapter() {
@@ -81,6 +97,7 @@ async function canInitialize() {
     if (!adapter) { window.AITGPTDiagnostics?.log("timeline.no-adapter"); return false; }
 
     adapter.syncCapturedChatsData?.();
+    if (!hasLightweightTimelineEvidence(adapter)) return false;
     adapter.prepareTimelineNodes?.({
         force: true,
         reason: 'initialization-check'
@@ -162,10 +179,28 @@ async function initWithRetry(version, delays, retryIndex = 0) {
 
 function attachRouteListenersOnce() {
     if (routeListenersAttached) return;
+    currentUrl = location.href;
     routeListenersAttached = true;
 
     TimelineUtils.removeEventListenerSafe(window, 'url:change', handleUrlChange);
     try { window.addEventListener('url:change', handleUrlChange); } catch {}
+    try { window.navigation?.addEventListener('currententrychange', handleUrlChange); } catch {}
+}
+
+function attachTimelineHealthListenerOnce() {
+    if (timelineHealthListenerAttached) return;
+    timelineHealthListenerAttached = true;
+    window.addEventListener('ait-timeline-health-reinit', () => {
+        void (async () => {
+            if (!timelineManagerInstance || !(await isConversationRoute())
+                || !(await isPlatformEnabled())) return;
+            const version = ++initVersion;
+            window.AITGPTDiagnostics?.log('timeline.init-stage', {
+                stage: 'health-reinitialize', version
+            });
+            await initializeTimeline(version);
+        })().catch(error => window.AITGPTDiagnostics?.error('timeline.health-reinit', error));
+    });
 }
 
 function detachRouteListeners() {
@@ -173,6 +208,7 @@ function detachRouteListeners() {
     routeListenersAttached = false;
 
     TimelineUtils.removeEventListenerSafe(window, 'url:change', handleUrlChange);
+    try { window.navigation?.removeEventListener('currententrychange', handleUrlChange); } catch {}
 }
 
 function cleanupGlobalObservers() {
@@ -263,21 +299,52 @@ async function handleUrlChange() {
         window.questionListPopup.hide();
     }
 
-    currentUrl = location.href;
-    initVersion++;
+    const url = location.href;
+    currentUrl = url;
+    const version = ++initVersion;
     currentAdapter = null;
-    currentAdapter = await adapterRegistry.detectAdapter();
 
     // URL 变化了，先清理旧时间轴实例（内部会销毁 ChatTimeRecorder）
     destroyTimelineInstance();
 
+    const adapter = await adapterRegistry.detectAdapter();
+    // A slower route task must not overwrite state belonging to a newer route.
+    if (version !== initVersion || url !== location.href) return;
+    currentAdapter = adapter;
+
     // 如果当前是对话 URL，重新初始化
-    if (await isConversationRoute()) {
-        const currentVersion = initVersion;
-        void initWithRetry(currentVersion, TIMELINE_CONFIG.INIT_RETRY_DELAYS)
+    if (adapter?.isConversationRoute(location.pathname)) {
+        armInitialTimelineObserver(version);
+        void initWithRetry(version, TIMELINE_CONFIG.INIT_RETRY_DELAYS)
             .catch(e => window.AITGPTDiagnostics?.error("timeline.async", e));
+    } else if (adapter?.platformId === 'chatgpt') {
+        armInitialTimelineObserver(version);
     }
     // 如果不是对话 URL，只清理（上面已经做了）
+}
+
+function armInitialTimelineObserver(version = initVersion) {
+    cleanupGlobalObservers();
+    if (!window.DOMObserverManager) return;
+    unsubscribePageObserver = window.DOMObserverManager.getInstance().subscribeBody('timeline-initial', {
+        target: CHATGPT_TIMELINE_EVIDENCE_SELECTOR,
+        filter: { childList: true, subtree: true },
+        debounce: 120,
+        callback: () => {
+            if (version !== initVersion || timelineManagerInstance || bootstrapCheckInFlight) return;
+            bootstrapCheckInFlight = (async () => {
+                const adapter = await resolveCurrentAdapter();
+                if (version !== initVersion || !hasLightweightTimelineEvidence(adapter)) return false;
+                if (!(await isConversationRoute()) || !(await isPlatformEnabled())) return false;
+                const initialized = await initWithRetry(version, TIMELINE_CONFIG.INIT_RETRY_DELAYS);
+                if (timelineManagerInstance) cleanupGlobalObservers();
+                return initialized;
+            })().catch(error => {
+                window.AITGPTDiagnostics?.error('timeline.initial-observer', error);
+                return false;
+            }).finally(() => { bootstrapCheckInFlight = null; });
+        }
+    });
 }
 
 // ✅ 监听平台设置变化，动态启用/禁用时间轴
@@ -309,11 +376,16 @@ function setupPlatformSettingsListener() {
                 if (wasEnabled !== isEnabled) {
                     if (isEnabled) {
                         // 从禁用到启用：重新初始化时间轴
-                        if (!timelineManagerInstance && await isConversationRoute()) {
-                            initVersion++;
-                            const currentVersion = initVersion;
-                            void initWithRetry(currentVersion, TIMELINE_CONFIG.INIT_RETRY_DELAYS)
-                                .catch(e => window.AITGPTDiagnostics?.error("timeline.async", e));
+                        if (!timelineManagerInstance) {
+                            const adapter = await resolveCurrentAdapter();
+                            const currentVersion = ++initVersion;
+                            if (await isConversationRoute()) {
+                                armInitialTimelineObserver(currentVersion);
+                                void initWithRetry(currentVersion, TIMELINE_CONFIG.INIT_RETRY_DELAYS)
+                                    .catch(e => window.AITGPTDiagnostics?.error("timeline.async", e));
+                            } else if (adapter?.platformId === 'chatgpt') {
+                                armInitialTimelineObserver(currentVersion);
+                            }
                         }
                     } else {
                         // 从启用到禁用：销毁时间轴
@@ -340,6 +412,8 @@ async function bootstrapTimeline() {
 
     setupPlatformSettingsListener();
     setupCapturedDataInitListener();
+    attachRouteListenersOnce();
+    attachTimelineHealthListenerOnce();
     currentAdapter = await adapterRegistry.detectAdapter();
     window.AITGPTDiagnostics?.log('timeline.init-stage', {
         stage: 'adapter-detected', adapter: currentAdapter?.platformId || 'none',
@@ -348,34 +422,22 @@ async function bootstrapTimeline() {
     
     // ✅ 修复：先检查DOM中是否已存在用户消息（SPA路由切换场景）
     const checkAndInit = async () => {
-        const adapter = await resolveCurrentAdapter();
-        adapter?.syncCapturedChatsData?.();
-        adapter?.prepareTimelineNodes?.({
-            force: true,
-            reason: 'bootstrap-check'
-        });
-        const state = getInitializationState(adapter);
-        const selector = state.selector || null;
-        const matches = selector ? document.querySelectorAll(selector).length : 0;
-        const apiData = state.apiIndex === true;
-        const anchor = state.anchor || null;
-        window.AITGPTDiagnostics?.log('timeline.init-stage', {
-            stage: 'bootstrap-probe', adapter: adapter?.platformId || 'unknown', matches, apiData, anchor: !!anchor
-        });
-        if (state.ready === true) {
-            if (await isConversationRoute()) {
-                // Use retry mechanism for initial load as well
-                initVersion++;
-                const currentVersion = initVersion;
-                void initWithRetry(currentVersion, TIMELINE_CONFIG.INIT_RETRY_DELAYS)
-                    .catch(e => window.AITGPTDiagnostics?.error("timeline.async", e));
-            }
-            
+        if (bootstrapCheckInFlight) return bootstrapCheckInFlight;
+        bootstrapCheckInFlight = (async () => {
+            const adapter = await resolveCurrentAdapter();
+            adapter?.syncCapturedChatsData?.();
+            if (!hasLightweightTimelineEvidence(adapter)) return false;
+            adapter?.prepareTimelineNodes?.({ force: true, reason: 'bootstrap-check' });
+            const state = getInitializationState(adapter);
+            if (state.ready !== true || !(await isConversationRoute())) return false;
+            const currentVersion = ++initVersion;
+            void initWithRetry(currentVersion, TIMELINE_CONFIG.INIT_RETRY_DELAYS)
+                .catch(e => window.AITGPTDiagnostics?.error("timeline.async", e));
             attachRouteListenersOnce();
-            
-            return true; // 已初始化
-        }
-        return false; // 未初始化
+            cleanupGlobalObservers();
+            return true;
+        })().finally(() => { bootstrapCheckInFlight = null; });
+        return bootstrapCheckInFlight;
     };
     
     // ✅ 修复：立即检查一次（处理SPA路由切换到对话页的情况）
@@ -390,24 +452,8 @@ async function bootstrapTimeline() {
         // 已经初始化成功，不需要observer
     } else {
         // 还没有用户消息，使用 DOMObserverManager 等待
-        let unsubscribeInitial = null;
         window.AITGPTDiagnostics?.log("timeline.waiting-for-dom", { observerAvailable: !!window.DOMObserverManager });
-        if (window.DOMObserverManager) {
-            unsubscribeInitial = window.DOMObserverManager.getInstance().subscribeBody('timeline-initial', {
-                callback: () => {
-                    void (async () => {
-                        if (await checkAndInit()) {
-                            // 初始化成功，取消订阅
-                            if (unsubscribeInitial) {
-                                unsubscribeInitial();
-                                unsubscribeInitial = null;
-                            }
-                        }
-                    })().catch(e => window.AITGPTDiagnostics?.error("timeline.async", e));
-                },
-                debounce: 150  // 150ms 防抖
-            });
-        }
+        armInitialTimelineObserver(initVersion);
     }
 }
 

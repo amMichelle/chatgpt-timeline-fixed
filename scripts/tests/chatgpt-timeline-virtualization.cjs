@@ -116,6 +116,7 @@ async function testCaptureIndexAndIsolation() {
     document,
     location: { href: `https://chatgpt.com/c/${conversationId}`, origin: 'https://chatgpt.com', pathname: `/c/${conversationId}` },
     URL,
+    AbortController,
     CustomEvent: FakeCustomEvent,
     performance: { now: () => 0 },
     navigator: { onLine: true },
@@ -203,6 +204,7 @@ async function testPaginationAndCompleteSnapshotProtection() {
     document,
     location: { href: `https://chatgpt.com/c/${conversationId}`, origin: 'https://chatgpt.com', pathname: `/c/${conversationId}` },
     URL,
+    AbortController,
     CustomEvent: FakeCustomEvent,
     performance: { now: () => 0 },
     navigator: { onLine: true },
@@ -218,6 +220,10 @@ async function testPaginationAndCompleteSnapshotProtection() {
   vm.runInContext(fs.readFileSync(path.join(root, 'js/apiCapture/chatgpt-rollout.js'), 'utf8'), context);
   vm.runInContext(fs.readFileSync(path.join(root, 'js/apiCapture/chatgpt.js'), 'utf8'), context);
   let pulled = null;
+  const nativePaginationEvents = [];
+  document.addEventListener('ait-gpt-native-history-pagination', event => {
+    nativePaginationEvents.push(JSON.parse(event.detail));
+  });
   document.addEventListener('ait-gpt-user-texts-result', event => { pulled = JSON.parse(event.detail); });
   const pull = () => document.dispatchEvent(new FakeCustomEvent('ait-gpt-user-texts-pull', { detail: conversationId }));
   pull();
@@ -232,6 +238,11 @@ async function testPaginationAndCompleteSnapshotProtection() {
   assert.equal(pulled.turns[0].id, 'm-user-1');
   assert.equal(pulled.turns[49].id, 'm-user-50');
   assert.equal(pulled.turns[99].id, 'm-user-100');
+  await window.fetch(`https://chatgpt.com/backend-api/conversations/${conversationId}/messages?before=native-cursor`);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(nativePaginationEvents.some(event => event.stage === 'request'), true);
+  assert.equal(nativePaginationEvents.some(event => event.stage === 'response' && event.ok === true), true,
+    'captured native history pagination exposes a paired, current-conversation lifecycle signal');
 
   await window.fetch(`https://chatgpt.com/backend-api/conversations/${conversationId}`);
   await new Promise(resolve => setImmediate(resolve));
@@ -299,26 +310,52 @@ async function testPaginationAndCompleteSnapshotProtection() {
 }
 
 async function testVirtualizerBridge() {
-  const runBridge = async (virtualizer, request, options = {}) => {
-    class FakeElement {}
-    const element = new FakeElement();
-    element.__reactFiber$test = { memoizedState: { virtualizer } };
-    element.parentElement = null;
+  const createBridge = (virtualizer, options = {}) => {
+    class FakeElement {
+      constructor(attrs = {}) { this.attrs = attrs; this.isConnected = true; this.parentElement = null; }
+      getAttribute(name) { return this.attrs[name] || null; }
+      getBoundingClientRect() { return { width: 600, height: 80, top: 120, bottom: 200 }; }
+      getClientRects() { return [this.getBoundingClientRect()]; }
+      closest() { return this; }
+      contains(node) { return node === this; }
+    }
+    const reactValues = options.reactValues || [options.reactValue || { memoizedState: { virtualizer } }];
+    const elements = reactValues.map((reactValue, index) => {
+      const element = new FakeElement();
+      element[`__reactFiber$test${index}`] = reactValue;
+      element.parentElement = null;
+      return element;
+    });
+    options.configureElements?.(elements);
     const document = new FakeEventTarget();
-    document.querySelectorAll = () => [element];
-    document.documentElement = element;
-    document.body = element;
+    document.querySelectorAll = selector => {
+      if (selector.startsWith('[data-turn-key], [data-content-search-turn-key]')) {
+        return options.targetNodes?.() || [];
+      }
+      return elements.filter(element => element.isConnected !== false);
+    };
+    document.documentElement = elements[0];
+    document.body = elements[0];
     const window = {};
     const context = vm.createContext({
       window, document, Element: FakeElement, CustomEvent: FakeCustomEvent,
       Date, Math, JSON, Set, WeakSet, WeakMap, Object, Array, Promise,
+      location: { pathname: '/c/test-conversation' },
       performance: { now: options.performanceNow || (() => Date.now()) }, setTimeout, clearTimeout
     });
     vm.runInContext(fs.readFileSync(path.join(root, 'js/apiCapture/chatgpt-virtualizer.js'), 'utf8'), context);
-    return new Promise(resolve => {
-      document.addEventListener('ait-gpt-virtualizer-jump-result', event => resolve(JSON.parse(event.detail)), { once: true });
+    let requestSequence = 0;
+    const send = request => new Promise(resolve => {
+      const requestId = `bridge-case-${++requestSequence}`;
+      const handler = event => {
+        const result = JSON.parse(event.detail);
+        if (result.requestId !== requestId) return;
+        document.removeEventListener('ait-gpt-virtualizer-jump-result', handler);
+        resolve(result);
+      };
+      document.addEventListener('ait-gpt-virtualizer-jump-result', handler);
       document.dispatchEvent(new FakeCustomEvent('ait-gpt-virtualizer-jump', {
-        detail: JSON.stringify({ requestId: 'bridge-case', deadlineMs: 900, ...request })
+        detail: JSON.stringify({ requestId, deadlineMs: 900, ...request })
       }));
       if (Number.isFinite(options.cancelAfterMs)) {
         setTimeout(() => document.dispatchEvent(new FakeCustomEvent('ait-gpt-virtualizer-jump-cancel', {
@@ -326,7 +363,10 @@ async function testVirtualizerBridge() {
         })), options.cancelAfterMs);
       }
     });
+    return { send, document, elements, context };
   };
+  const runBridge = async (virtualizer, request, options = {}) =>
+    createBridge(virtualizer, options).send(request);
 
   let visible = [40, 41, 42];
   const numericAttempts = [];
@@ -346,6 +386,270 @@ async function testVirtualizerBridge() {
   assert.equal(result.stateChanged, true);
   assert.equal(result.signatureAttempt, 1, 'the common numeric signature is attempted first');
   assert.equal(numericAttempts[0], 55);
+
+  let nativeMounted = false;
+  const nativeCalls = [];
+  const nativeOwner = {
+    memoizedProps: { turnListApi: {
+      async scrollToKey(key) {
+        nativeCalls.push(key);
+        if (key === 'q2') nativeMounted = true;
+      }
+    } },
+    memoizedState: { turnKeys: ['q6', 'q7', 'q2'], retainedTurnKeys: ['q1'] }
+  };
+  const makeNativeTarget = key => new (class {
+    constructor() { this.isConnected = true; }
+    getAttribute(name) { return name === 'data-turn-key' ? key : null; }
+    getBoundingClientRect() { return { width: 600, height: 80, top: 125, bottom: 205 }; }
+    closest(selector) { return selector.includes('data-turn') ? this : null; }
+  })();
+  const nativeTarget = makeNativeTarget('q2');
+  result = await runBridge(nativeOwner, {
+    targetIds: ['q2'], targetUserOrder: 2, totalUserTurns: 10
+  }, { targetNodes: () => nativeMounted ? [nativeTarget] : [] });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(result.indexStrategy, 'native-turn-key');
+  assert.equal(result.targetKeyLoaded, true);
+  assert.deepEqual(nativeCalls, ['q2'], 'the verified native key is called exactly once');
+
+  const makeHookChain = (nextDepth, keys, retainedKeys = []) => {
+    const head = { memoizedState: {} };
+    let hook = head;
+    for (let index = 0; index < nextDepth; index++) {
+      hook.next = { memoizedState: {} };
+      hook = hook.next;
+    }
+    hook.memoizedState = { turnKeys: keys, retainedTurnKeys: retainedKeys };
+    return head;
+  };
+  for (const depth of [8, 9, 10, 12, 32]) {
+    let mounted = false;
+    let calls = 0;
+    const componentFiber = {
+      pendingProps: { turnListApi: { async scrollToKey(key) { calls++; mounted = key === 'deep-q2'; } } },
+      memoizedProps: {},
+      memoizedState: makeHookChain(depth, ['deep-q2'])
+    };
+    const reactLeaf = { return: componentFiber, memoizedState: null, memoizedProps: {} };
+    result = await runBridge(null, { targetIds: ['deep-q2'] }, {
+      reactValue: reactLeaf,
+      targetNodes: () => mounted ? [makeNativeTarget('deep-q2')] : []
+    });
+    assert.equal(result.ok, true, `Hook next depth ${depth}: ${JSON.stringify(result)}`);
+    assert.equal(result.nativeKeyCount, 1, `Hook next depth ${depth} must expose the Key collection`);
+    assert.equal(calls, 1, `Hook next depth ${depth} must call scrollToKey once`);
+  }
+
+  let splitMounted = false;
+  let splitCalls = 0;
+  const splitApiFiber = {
+    pendingProps: { turnListApi: { scrollToKey(key) { splitCalls++; splitMounted = key === 'q2'; } } },
+    memoizedState: null
+  };
+  const splitKeysFiber = {
+    pendingProps: {}, memoizedState: makeHookChain(12, ['q2', 'q6', 'q7'])
+  };
+  result = await runBridge(null, { targetIds: ['q2'] }, {
+    reactValues: [{ return: splitApiFiber }, { return: splitKeysFiber }],
+    targetNodes: () => splitMounted ? [nativeTarget] : []
+  });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(splitCalls, 1,
+    'an exact target Key may validate a visible conversation API even when props and Hook entry roots differ');
+
+  let wrongControllerCalls = 0;
+  let currentControllerCalls = 0;
+  let multipleMounted = false;
+  const wrongFiber = {
+    pendingProps: { turnListApi: { scrollToKey() { wrongControllerCalls++; } } },
+    memoizedState: makeHookChain(12, ['q2'])
+  };
+  const currentFiber = {
+    pendingProps: { turnListApi: { scrollToKey(key) { currentControllerCalls++; multipleMounted = key === 'q2'; } } },
+    memoizedState: makeHookChain(12, ['q2'])
+  };
+  result = await runBridge(null, { targetIds: ['q2'] }, {
+    reactValues: [{ return: wrongFiber }, { return: currentFiber }],
+    configureElements: elements => {
+      elements[0].getBoundingClientRect = () => ({ width: 0, height: 0, top: 0, bottom: 0 });
+    },
+    targetNodes: () => multipleMounted ? [nativeTarget] : []
+  });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(wrongControllerCalls, 0, 'a hidden stale conversation controller is not selected even with the same target Key');
+  assert.equal(currentControllerCalls, 1, 'the current conversation controller owns the target Key');
+
+  let pagedMounted = false;
+  let pagedCalls = 0;
+  const pagedFiber = {
+    pendingProps: { turnListApi: { scrollToKey() { pagedCalls++; pagedMounted = true; } } },
+    memoizedState: makeHookChain(12, ['q6', 'q7'], ['q1'])
+  };
+  const pagedBridge = createBridge(null, {
+    reactValue: { return: pagedFiber },
+    targetNodes: () => pagedMounted ? [nativeTarget] : []
+  });
+  result = await pagedBridge.send({
+    targetIds: ['q2'], queryOnly: true,
+    knownUserTurns: [
+      { userOrder: 2, ids: ['q2'] },
+      { userOrder: 1, ids: ['q1'] },
+      { userOrder: 6, ids: ['q6'] },
+      { userOrder: 7, ids: ['q7'] }
+    ]
+  });
+  assert.equal(result.queryOnly, true);
+  assert.equal(result.targetKeyLoaded, false);
+  assert.deepEqual(result.loadedUserOrders, [1, 6, 7]);
+  assert.deepEqual(result.turnUserOrders, [6, 7]);
+  assert.deepEqual(result.retainedUserOrders, [1],
+    'retained keys are reported separately and never define the loaded turn range');
+  assert.equal(pagedCalls, 0, 'read-only Key queries never invoke scrollToKey');
+  result = await pagedBridge.send({ targetIds: ['q2'] });
+  assert.equal(result.reason, 'target-key-not-loaded');
+  assert.equal(pagedCalls, 0);
+  pagedFiber.memoizedState = makeHookChain(14, ['q2', 'q6', 'q7']);
+  result = await pagedBridge.send({ targetIds: ['q2'] });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(pagedCalls, 1, 'history pagination replaces the Hook Key collection used by the next discovery');
+
+  let oldTreeCalls = 0;
+  let newTreeCalls = 0;
+  let replacementMounted = false;
+  const oldFiber = {
+    pendingProps: { turnListApi: { scrollToKey() { oldTreeCalls++; replacementMounted = true; } } },
+    memoizedState: makeHookChain(8, ['q2'])
+  };
+  const replacementBridge = createBridge(null, {
+    reactValue: { return: oldFiber },
+    targetNodes: () => replacementMounted ? [nativeTarget] : []
+  });
+  result = await replacementBridge.send({ targetIds: ['q2'] });
+  assert.equal(result.ok, true);
+  replacementMounted = false;
+  const newFiber = {
+    pendingProps: { turnListApi: { scrollToKey() { newTreeCalls++; replacementMounted = true; } } },
+    memoizedState: makeHookChain(12, ['q2'])
+  };
+  const element = replacementBridge.elements[0];
+  delete element.__reactFiber$test0;
+  element.__reactFiber$replacement = { return: newFiber };
+  result = await replacementBridge.send({ targetIds: ['q2'] });
+  assert.equal(result.ok, true, JSON.stringify(result));
+  assert.equal(oldTreeCalls, 1, 'a replaced React tree must not reuse its old controller');
+  assert.equal(newTreeCalls, 1, 'the replacement React tree is rediscovered');
+
+  let delayedMounted = false;
+  const delayedFiber = {
+    pendingProps: { turnListApi: { scrollToKey: () => new Promise(resolve => {
+      setTimeout(() => { delayedMounted = true; }, 40);
+      setTimeout(resolve, 220);
+    }) } },
+    memoizedState: makeHookChain(12, ['q2'])
+  };
+  const delayedBridge = createBridge(null, {
+    reactValue: { return: delayedFiber },
+    targetNodes: () => delayedMounted ? [nativeTarget] : []
+  });
+  let issuedProgress = null;
+  delayedBridge.document.addEventListener('ait-gpt-virtualizer-jump-progress', event => {
+    issuedProgress = JSON.parse(event.detail);
+  });
+  const delayedResultPromise = delayedBridge.send({ targetIds: ['q2'], deadlineMs: 700 });
+  await new Promise(resolve => setTimeout(resolve, 25));
+  assert.equal(issuedProgress?.nativeCommandIssued, true,
+    'the bridge acknowledges native invocation before its Promise settles');
+  result = await delayedResultPromise;
+  assert.equal(result.ok, true);
+  assert.equal(result.nativeCommandIssued, true);
+  assert.equal(result.promisePendingAfterTarget, true,
+    'verified target identity may complete navigation observation before a slow native Promise');
+
+  let strictMounted = false;
+  let strictSettled = false;
+  const strictFiber = {
+    pendingProps: { turnListApi: { scrollToKey: () => new Promise(resolve => {
+      setTimeout(() => { strictMounted = true; }, 30);
+      setTimeout(() => { strictSettled = true; resolve(); }, 160);
+    }) } },
+    memoizedState: makeHookChain(12, ['q2'])
+  };
+  result = await runBridge(null, { targetIds: ['q2'], deadlineMs: 700, requireSettledNativeKey: true }, {
+    reactValue: { return: strictFiber }, targetNodes: () => strictMounted ? [nativeTarget] : []
+  });
+  assert.equal(result.ok, true);
+  assert.equal(strictSettled, true, 'history edge navigation waits for the native Promise even after mounting');
+  assert.notEqual(result.promisePendingAfterTarget, true);
+
+  let cancelledNativeFinished = false;
+  let cancelledNativeCalls = 0;
+  const cancelledFiber = {
+    pendingProps: { turnListApi: { scrollToKey: () => {
+      cancelledNativeCalls++;
+      return new Promise(resolve => setTimeout(() => {
+        cancelledNativeFinished = true;
+        resolve();
+      }, 120));
+    } } },
+    memoizedState: makeHookChain(12, ['q2'])
+  };
+  result = await runBridge(null, { targetIds: ['q2'], deadlineMs: 700 }, {
+    reactValue: { return: cancelledFiber }, cancelAfterMs: 20, targetNodes: () => []
+  });
+  assert.equal(result.reason, 'cancelled');
+  assert.equal(result.nativeCommandIssued, true);
+  assert.equal(cancelledNativeCalls, 1);
+  await new Promise(resolve => setTimeout(resolve, 140));
+  assert.equal(cancelledNativeFinished, true,
+    'cancelling observation does not assume an already-invoked page Promise was cancelled');
+
+  let missingKeyCalls = 0;
+  const mountedQ6 = new (class {
+    constructor() { this.isConnected = true; }
+    getAttribute(name) { return name === 'data-turn-key' ? 'q6' : null; }
+    getBoundingClientRect() { return { width: 600, height: 80, top: 125, bottom: 205 }; }
+    closest(selector) { return selector.includes('data-turn') ? this : null; }
+  })();
+  result = await runBridge({
+    memoizedProps: { turnListApi: { scrollToKey() { missingKeyCalls++; } } },
+    memoizedState: { turnKeys: ['q6', 'q7'], retainedTurnKeys: [] }
+  }, {
+    targetIds: ['q2'], targetUserOrder: 2, totalUserTurns: 10
+  }, { targetNodes: () => [mountedQ6] });
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, 'target-key-not-loaded');
+  assert.equal(result.failureStage, 'native-list-capability');
+  assert.equal(missingKeyCalls, 0, 'scrollToKey must not run for history absent from native turnKeys');
+
+  let fulfilledNoEffectCalls = 0;
+  result = await runBridge({
+    memoizedProps: { turnListApi: { async scrollToKey() { fulfilledNoEffectCalls++; } } },
+    memoizedState: { turnKeys: ['q2'], retainedTurnKeys: [] }
+  }, {
+    targetIds: ['q2'], deadlineMs: 300
+  }, { targetNodes: () => [] });
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, 'target-key-no-observable-effect');
+  assert.equal(fulfilledNoEffectCalls, 1, 'fulfilled Promise without a mounted identity is not success');
+
+  let movedScrollRoot = null;
+  result = await runBridge(null, {
+    targetIds: ['q2'], deadlineMs: 300
+  }, {
+    reactValue: { memoizedProps: { turnListApi: {
+      async scrollToKey() { movedScrollRoot.scrollTop = 420; }
+    } }, memoizedState: { turnKeys: ['q2'], retainedTurnKeys: [] } },
+    configureElements: elements => {
+      movedScrollRoot = elements[0];
+      movedScrollRoot.scrollTop = 0;
+    },
+    targetNodes: () => []
+  });
+  assert.equal(result.ok, false);
+  assert.equal(result.reason, 'target-key-moved-without-target');
+  assert.equal(result.stateChanged, true,
+    'native movement is retained even when the stable target never mounts');
 
   visible = [1, 2, 3];
   const objectController = {
@@ -473,6 +777,41 @@ async function testAdapterBuildsCompleteMarkersFromPartialDom() {
   assert.equal(adapter.getTimelineEntries([mounted]).length, 0, 'partial API/DOM windows must never define Q1');
   adapter._capturedComplete = true;
 
+  const transientAdapter = new window.__TestChatGPTAdapter();
+  transientAdapter.isTransientConversation = () => true;
+  transientAdapter.extractText = element => `temporary ${element.getAttribute('data-turn-key')}`;
+  const transientTurn = id => {
+    const content = {
+      textContent: `temporary ${id}`,
+      getBoundingClientRect: () => ({ width: 300, height: 40, top: 20, bottom: 60 }),
+      closest: () => null,
+      matches: () => false,
+      querySelectorAll: () => []
+    };
+    return {
+      isConnected: true,
+      getAttribute: name => name === 'data-turn-key' ? id : null,
+      matches: selector => selector.includes('[data-turn-key]'),
+      closest: () => null,
+      querySelectorAll: selector => selector.includes('data-message-author-role') ? [content] : [],
+      querySelector: () => null,
+      hasAttribute: () => false,
+      getBoundingClientRect: () => ({ width: 600, height: 80, top: 0, bottom: 80 })
+    };
+  };
+  const temporaryQ1 = transientTurn('temporary-q1');
+  const temporaryQ2 = transientTurn('temporary-q2');
+  let transientEntries = transientAdapter.getTimelineEntries([temporaryQ1]);
+  assert.equal(transientEntries.length, 1);
+  transientEntries = transientAdapter.getTimelineEntries([temporaryQ1, temporaryQ2]);
+  assert.equal(Array.from(transientEntries, entry => entry.sourceId).join(','),
+    'temporary-q1,temporary-q2');
+  assert.equal(transientEntries.every(entry => entry.transient === true), true,
+    'Temporary Chat maintains a complete in-memory-only marker index as turns arrive');
+  transientAdapter.getInitializationAnchor = () => temporaryQ1;
+  assert.equal(transientAdapter.isConversationRoute('/'), true,
+    'a non-durable ChatGPT route initializes only after a real turn anchor exists');
+
   const bulkAdapter = new window.__TestChatGPTAdapter();
   bulkAdapter._capturedComplete = true;
   bulkAdapter._capturedTotalMessages = 200;
@@ -584,7 +923,10 @@ async function testAdapterBuildsCompleteMarkersFromPartialDom() {
   assert.equal(userRoot.getAttribute('data-ait-turn'), 'user', 'descendant selection message ID maps opaque turn key to API user');
   assert.equal(assistantRoot.getAttribute('data-ait-turn'), null, 'assistant roots must not be inferred as users');
   assert.equal(adapter.getInitializationAnchor(), userRoot, 'modern turn is a valid initialization anchor without #thread');
-  assert.equal(adapter.findConversationContainer(userRoot), main, 'main is the stable no-#thread conversation container');
+  assert.equal(adapter.findConversationContainer(userRoot), null,
+    'new layout must never use the whole main as an extension injection container');
+  assert.equal(adapter.shouldManageScrollPadding(), false,
+    'ChatGPT virtual scroll height must not be changed by an injected padding child');
   assert.equal(adapter.resolveTimelineScrollContainer(userRoot, main), scrollRoot,
     'ChatGPT scroll root is retained before it has a scrollable range');
   const nestedMain = new ModernElement('main');
@@ -643,6 +985,17 @@ async function testAdapterBuildsCompleteMarkersFromPartialDom() {
   assert.equal(adapter.resolveTimelineElement(modernEntries[0]), null, 'an identity-bearing virtual shell is not a rendered-message success');
   assert.equal(adapter._buildVirtualIndexPlan(modernEntries[0]).strategy, 'target-placeholder-index',
     'the same shell may still provide an exact virtual index anchor');
+  let shellScrollCalls = 0;
+  shellOnly.scrollIntoView = () => { shellScrollCalls++; };
+  adapter._findIdentityAnchor = () => shellOnly;
+  adapter._getCachedScrollPosition = () => null;
+  assert.equal(await adapter._tryKnownTimelinePosition(modernEntries[0], {
+    scrollContainer: {}, isCurrent: () => true
+  }), null);
+  assert.equal(shellScrollCalls, 0,
+    'a modern identity shell without rendered user content is never scrolled as a real message');
+  delete adapter._findIdentityAnchor;
+  delete adapter._getCachedScrollPosition;
   adapter._getModernTurnRoots = originalShellRoots;
 
   const longAdapter = new window.__TestChatGPTAdapter();
@@ -712,9 +1065,10 @@ async function testManagerVirtualMarkerNavigation() {
   const manager = Object.create(window.__TestTimelineManager.prototype);
   let nativeTop = 900;
   let actualScrollTop = 500;
+  let scrollTopWrites = 0;
   const actualScrollRoot = {
     get scrollTop() { return actualScrollTop; },
-    set scrollTop(value) { nativeTop -= value - actualScrollTop; actualScrollTop = value; },
+    set scrollTop(value) { scrollTopWrites++; nativeTop -= value - actualScrollTop; actualScrollTop = value; },
     getBoundingClientRect: () => ({ top: 0, bottom: 500 })
   };
   const fallbackHtml = { scrollTop: 0 };
@@ -745,12 +1099,14 @@ async function testManagerVirtualMarkerNavigation() {
   assert.equal(await nativeManager.smoothScrollTo(nativeTarget, 0), true,
     'Q12 → Q10 uses the same native path in the opposite direction');
   assert.equal(nativeTop, 30, 'upward navigation uses the same user-question alignment');
-  assert.equal(nativeScrollCalls, 2, 'each navigation issues one native scroll command');
+  assert.equal(nativeScrollCalls, 2, 'each navigation first reveals the real user-question body');
+  assert.equal(scrollTopWrites, 2, 'each navigation then performs one 30px precision correction');
   assert.equal(fallbackHtml.scrollTop, 0, 'native ChatGPT navigation never writes scrollTop to fallback HTML');
 
   const mountedById = new Map(['chatgpt-u1', 'chatgpt-u50', 'chatgpt-u100'].map(id => [id, { isConnected: true, id }]));
   const bridgeCalls = [];
   const smoothed = [];
+  const smoothOptions = [];
   manager._destroyed = false;
   manager.scrollContainer = {};
   manager.conversationContainer = {};
@@ -760,7 +1116,11 @@ async function testManagerVirtualMarkerNavigation() {
     jumpToTimelineMarker: async marker => { bridgeCalls.push(marker.id); return mountedById.get(marker.id); },
     invalidateTimelineNodes: () => {}
   };
-  manager.smoothScrollTo = element => { smoothed.push(element.id); };
+  manager.smoothScrollTo = (element, duration, options) => {
+    smoothed.push(element.id);
+    smoothOptions.push(options || {});
+    return true;
+  };
   manager._isElementVisibleInScrollContainer = element => !!element?.isConnected;
   manager.debouncedRecalculateAndRender = () => {};
   manager.markers = [];
@@ -776,7 +1136,57 @@ async function testManagerVirtualMarkerNavigation() {
     assert.equal(marker.virtual, false);
   }
   assert.deepEqual(bridgeCalls, ['chatgpt-u1', 'chatgpt-u50', 'chatgpt-u100']);
-  assert.deepEqual(smoothed, ['chatgpt-u1', 'chatgpt-u50', 'chatgpt-u100']);
+  assert.deepEqual(smoothed, ['chatgpt-u1', 'chatgpt-u50', 'chatgpt-u100'],
+    'every identity-verified ChatGPT target receives the proven final precision alignment');
+
+  const nativeKeyMarker = { id: 'chatgpt-native-q2', messageId: 'q2', element: null, virtual: true };
+  const nativeKeyElement = { isConnected: true, id: nativeKeyMarker.id };
+  manager.adapter.jumpToTimelineMarker = async marker => {
+    marker._aitNavigationStrategy = 'native-turn-key';
+    return nativeKeyElement;
+  };
+  manager.adapter.resolveTimelineElement = marker => marker.element?.isConnected ? marker.element : null;
+  smoothed.length = 0;
+  assert.equal(await manager.navigateToMarker(nativeKeyMarker), true,
+    'a native Key jump still finishes through stable-ID verification and precise alignment');
+  assert.deepEqual(smoothed, ['chatgpt-native-q2']);
+  assert.equal(smoothOptions.at(-1).skipReveal, true,
+    'native Key positioning skips a second scrollIntoView and performs only final offset correction');
+
+  const displacedMarker = { id: 'chatgpt-native-displaced', messageId: 'q10', element: null, virtual: true };
+  const displacedElement = { isConnected: true, id: displacedMarker.id };
+  const recoveredElement = { isConnected: true, id: displacedMarker.id };
+  let displacedResolved = displacedElement;
+  let displacementRecoveries = 0;
+  manager.adapter.jumpToTimelineMarker = async marker => {
+    marker._aitNavigationStrategy = 'native-turn-key';
+    return displacedElement;
+  };
+  manager.adapter.resolveTimelineElement = () => displacedResolved;
+  manager.adapter.recoverDisplacedTimelineMarker = async () => {
+    displacementRecoveries++;
+    displacedResolved = recoveredElement;
+    return recoveredElement;
+  };
+  manager._isElementVisibleInScrollContainer = element => element === recoveredElement;
+  manager.smoothScrollTo = async element => {
+    if (element === displacedElement) displacedResolved = null;
+    return true;
+  };
+  assert.equal(await manager.navigateToMarker(displacedMarker), true,
+    'a stable-ID target displaced during final native settling uses the existing recovery path');
+  await new Promise(resolve => setTimeout(resolve, 500));
+  assert.equal(displacementRecoveries, 1,
+    'final verification and delayed settling share one displacement recovery allowance');
+
+  manager.adapter.recoverDisplacedTimelineMarker = undefined;
+  manager.adapter.resolveTimelineElement = marker => marker.element?.isConnected ? marker.element : null;
+  manager._isElementVisibleInScrollContainer = element => !!element?.isConnected;
+  manager.smoothScrollTo = (element, duration, options) => {
+    smoothed.push(element.id);
+    smoothOptions.push(options || {});
+    return true;
+  };
 
   let resolveFirstJump;
   manager.adapter.jumpToTimelineMarker = marker => marker.id === 'chatgpt-u1'
@@ -789,7 +1199,7 @@ async function testManagerVirtualMarkerNavigation() {
   await lastNavigation;
   resolveFirstJump(mountedById.get('chatgpt-u1'));
   assert.equal(await firstNavigation, false, 'an older in-flight navigation must be cancelled');
-  assert.deepEqual(smoothed, ['chatgpt-u100'], 'the last rapid click must own the final scroll');
+  assert.deepEqual(smoothed, ['chatgpt-u100'], 'only the last rapid click owns final alignment');
 
   const reusedMarker = { id: 'chatgpt-reused', messageId: 'reused', element: null, virtual: true };
   const reusedElement = { isConnected: true, id: reusedMarker.id };
@@ -818,9 +1228,14 @@ async function testQuestionListActivationWaitsForNavigation() {
 async function testChatGPTJumpIsBoundedAndNeverScans() {
   const source = fs.readFileSync(path.join(root, 'js/timeline/adapters/chatgpt.js'), 'utf8') + '\nwindow.__TestChatGPTAdapter = ChatGPTAdapter;';
   class SiteAdapter {}
+  const adapterDocument = new FakeEventTarget();
+  adapterDocument.querySelectorAll = () => [];
+  adapterDocument.body = adapterDocument;
+  adapterDocument.documentElement = adapterDocument;
   const context = vm.createContext({
-    window: {}, document: {}, SiteAdapter, Map, Set, Array, Object, JSON, Promise,
-    setTimeout: callback => { Promise.resolve().then(callback); return 1; }
+    window: {}, document: adapterDocument, SiteAdapter, Map, Set, Array, Object, JSON, Promise,
+    CustomEvent: FakeCustomEvent, setTimeout, clearTimeout,
+    location: { pathname: '/c/test-conversation' }
   });
   vm.runInContext(source, context);
   const adapter = new context.window.__TestChatGPTAdapter();
@@ -857,9 +1272,10 @@ async function testChatGPTJumpIsBoundedAndNeverScans() {
   cachedAdapter._getDomIdCandidates = () => ['m5'];
   cachedAdapter._isRenderedMessageElement = () => true;
   cachedAdapter.getUserMessageSelector = () => '[data-test-user]';
+  let observedTop = 200;
   const observedQ5 = {
     isConnected: true, hasAttribute: () => false,
-    getBoundingClientRect: () => ({ top: 200, bottom: 280, height: 80 })
+    getBoundingClientRect: () => ({ top: observedTop, bottom: observedTop + 80, height: 80 })
   };
   context.document.querySelectorAll = () => [observedQ5];
   cachedAdapter.getActiveTimelineMarkerId({
@@ -868,6 +1284,17 @@ async function testChatGPTJumpIsBoundedAndNeverScans() {
   }, [{ id: 'chatgpt-u5', sourceId: 'u5', messageId: 'm5', aliasIds: ['u5', 'm5'], userOrder: 5 }]);
   assert.equal(cachedAdapter._scrollPositionByMessageId.get('m5').top, 4200,
     'normal manual scrolling records Q5 by stable ID and real scroll position');
+  observedTop = 125.5;
+  assert.equal(cachedAdapter.getActiveTimelineMarkerId({
+    scrollTop: 4000, scrollHeight: 19462, clientHeight: 462,
+    getBoundingClientRect: () => ({ top: 0, bottom: 462 })
+  }, [{ id: 'chatgpt-u5', sourceId: 'u5', messageId: 'm5', aliasIds: ['u5', 'm5'], userOrder: 5 }], 120), 'chatgpt-u5',
+  'native scrollToKey landing near 125px must activate the matching dot');
+  observedTop = 200;
+  cachedAdapter.getActiveTimelineMarkerId({
+    scrollTop: 4000, scrollHeight: 19462, clientHeight: 462,
+    getBoundingClientRect: () => ({ top: 0, bottom: 462 })
+  }, [{ id: 'chatgpt-u5', sourceId: 'u5', messageId: 'm5', aliasIds: ['u5', 'm5'], userOrder: 5 }]);
   let cachedMounted = false;
   const cachedScroll = { scrollHeight: 19462, clientHeight: 462,
     get scrollTop() { return this._top || 0; },
@@ -877,11 +1304,43 @@ async function testChatGPTJumpIsBoundedAndNeverScans() {
   cachedAdapter._waitForMarkerMount = async () => ({
     element: cachedMounted ? cachedElement : null, mountMs: 1, mutations: 1
   });
-  cachedAdapter._requestVirtualizerJump = async () => { throw new Error('cached DOM position should run before React discovery'); };
+  let nativeCapabilityChecks = 0;
+  cachedAdapter._requestVirtualizerJump = async () => {
+    nativeCapabilityChecks++;
+    return { ok: false, reason: 'target-key-not-loaded', nativeKeyCount: 10 };
+  };
   assert.equal(await cachedAdapter.jumpToTimelineMarker({
     id: 'chatgpt-u5', sourceId: 'u5', messageId: 'm5', aliasIds: ['u5', 'm5'], userOrder: 5
   }, { scrollContainer: cachedScroll, isCurrent: () => true }), cachedElement,
-  'a manually visited Q5 can remount from its stable-ID scroll position');
+  'a manually visited Q5 remounts from its stable-ID position before React discovery');
+  assert.equal(nativeCapabilityChecks, 0, 'the proven cached-anchor path keeps its original priority');
+
+  cachedMounted = false;
+  cachedAdapter._requestVirtualizerJump = async () => ({
+    ok: false, reason: 'virtualizer_api_not_found'
+  });
+  cachedAdapter._captureReadingAnchor = () => ({ ids: ['reading-q31'], offset: 30 });
+  cachedAdapter._restoreReadingAnchor = async (anchor, container) => {
+    assert.equal(anchor.ids[0], 'reading-q31');
+    container.scrollTop = 900;
+    return true;
+  };
+  let collapsedWrites = 0;
+  const collapsedScroll = {
+    scrollHeight: 2416, clientHeight: 462, scrollTop: 900,
+    setScrollTop(value) { this.scrollTop = value; collapsedWrites++; }
+  };
+  Object.defineProperty(collapsedScroll, 'scrollTop', {
+    get() { return this._top || 900; },
+    set(value) { this._top = value; collapsedWrites++; }, configurable: true
+  });
+  assert.equal(await cachedAdapter.jumpToTimelineMarker({
+    id: 'chatgpt-u5', sourceId: 'u5', messageId: 'm5', aliasIds: ['u5', 'm5'], userOrder: 5
+  }, { scrollContainer: collapsedScroll, isCurrent: () => true }), null,
+  'an invalid cached coordinate falls through to the original bounded search');
+  assert.ok(collapsedWrites >= 2,
+    'bounded search restores the reading position through its stable message identity');
+  assert.equal(collapsedScroll.scrollTop, 900);
 
   const ratioAdapter = new context.window.__TestChatGPTAdapter();
   ratioAdapter._capturedTurns = cachedAdapter._capturedTurns;
@@ -943,6 +1402,382 @@ async function testChatGPTJumpIsBoundedAndNeverScans() {
   assert.ok(bracketWrites[2] > bracketWrites[1] && bracketWrites[2] < bracketWrites[0],
     'the third position stays inside the evidence-backed bracket instead of making another large jump');
 
+  const protocolAdapter = new context.window.__TestChatGPTAdapter();
+  protocolAdapter._capturedTurns = cachedAdapter._capturedTurns;
+  let protocolRequestCount = 0;
+  const protocolRequestHandler = event => {
+    const request = JSON.parse(event.detail);
+    protocolRequestCount++;
+    context.document.dispatchEvent(new FakeCustomEvent('ait-gpt-virtualizer-jump-progress', {
+      detail: JSON.stringify({
+        requestId: request.requestId, phase: 'command-issued', commandIssued: true,
+        nativeCommandIssued: true, method: 'scrollToKey', indexStrategy: 'native-turn-key',
+        targetKeyLoaded: true, nativeKeyCount: 10
+      })
+    }));
+    const resultDelay = protocolRequestCount === 1 ? 80 : 5;
+    setTimeout(() => context.document.dispatchEvent(new FakeCustomEvent('ait-gpt-virtualizer-jump-result', {
+      detail: JSON.stringify({
+        requestId: request.requestId, ok: true, controllerValidated: true,
+        commandIssued: true, nativeCommandIssued: true,
+        indexStrategy: 'native-turn-key', targetKeyLoaded: true, nativeKeyCount: 10
+      })
+    })), resultDelay);
+  };
+  context.document.addEventListener('ait-gpt-virtualizer-jump', protocolRequestHandler);
+  const protocolPlan = { index: null, strategy: 'native-test', mappingVerified: false,
+    observedIndices: [], targetIds: ['q2'] };
+  const timeoutResult = await protocolAdapter._requestVirtualizerJump(
+    protocolPlan, { userOrder: 2 }, { taskId: 90 }, 30
+  );
+  assert.equal(timeoutResult.reason, 'bridge-timeout');
+  assert.equal(timeoutResult.commandIssued, true);
+  assert.equal(timeoutResult.nativeCommandIssued, true,
+    'bridge timeout retains the already-issued native command state');
+  const nextResult = await protocolAdapter._requestVirtualizerJump(
+    protocolPlan, { userOrder: 3 }, { taskId: 91 }, 100
+  );
+  assert.equal(nextResult.ok, true, 'a second click owns its own request despite the first late result');
+  await new Promise(resolve => setTimeout(resolve, 90));
+  context.document.removeEventListener('ait-gpt-virtualizer-jump', protocolRequestHandler);
+
+  const timeoutNavigationAdapter = new context.window.__TestChatGPTAdapter();
+  timeoutNavigationAdapter._capturedTurns = cachedAdapter._capturedTurns;
+  timeoutNavigationAdapter.resolveTimelineElement = () => null;
+  timeoutNavigationAdapter._buildVirtualIndexPlan = () => protocolPlan;
+  timeoutNavigationAdapter._requestVirtualizerJump = async () => timeoutResult;
+  let timeoutKnownChecks = 0;
+  let timeoutFallbacks = 0;
+  timeoutNavigationAdapter._tryKnownTimelinePosition = async () => { timeoutKnownChecks++; return null; };
+  timeoutNavigationAdapter._fallbackScrollByUserOrder = async () => { timeoutFallbacks++; return null; };
+  assert.equal(await timeoutNavigationAdapter.jumpToTimelineMarker({
+    id: 'chatgpt-q2', sourceId: 'q2', aliasIds: ['q2'], userOrder: 2
+  }, { scrollContainer: bracketScroll, isCurrent: () => true }), null);
+  assert.equal(timeoutKnownChecks, 1, 'the original known-anchor check still runs before native discovery');
+  assert.equal(timeoutFallbacks, 0,
+    'an invoked native command never stacks cached-pixel or bounded-search fallback after timeout');
+
+  const noEffectAdapter = new context.window.__TestChatGPTAdapter();
+  noEffectAdapter._capturedTurns = cachedAdapter._capturedTurns;
+  noEffectAdapter.resolveTimelineElement = () => null;
+  noEffectAdapter._tryKnownTimelinePosition = async () => null;
+  noEffectAdapter._buildVirtualIndexPlan = () => protocolPlan;
+  noEffectAdapter._requestVirtualizerJump = async () => ({
+    ok: false, reason: 'target-key-no-observable-effect',
+    nativeCommandIssued: true, indexStrategy: 'native-turn-key',
+    targetKeyLoaded: true, nativeKeyCount: 19
+  });
+  let noEffectFallbacks = 0;
+  noEffectAdapter._fallbackScrollByUserOrder = async () => {
+    noEffectFallbacks++;
+    return ratioElement;
+  };
+  assert.equal(await noEffectAdapter.jumpToTimelineMarker({
+    id: 'chatgpt-u19', sourceId: 'u19', aliasIds: ['u19'], userOrder: 19
+  }, { scrollContainer: bracketScroll, isCurrent: () => true }), ratioElement);
+  assert.equal(noEffectFallbacks, 1,
+    'a settled scrollToKey with no observable effect resumes the original bounded search');
+
+  const unloadedAdapter = new context.window.__TestChatGPTAdapter();
+  unloadedAdapter._capturedTurns = cachedAdapter._capturedTurns;
+  unloadedAdapter.resolveTimelineElement = () => null;
+  unloadedAdapter._tryKnownTimelinePosition = async () => null;
+  unloadedAdapter._buildVirtualIndexPlan = () => protocolPlan;
+  unloadedAdapter._requestVirtualizerJump = async () => ({
+    ok: false, reason: 'target-key-not-loaded', nativeKeyCount: 5,
+    loadedUserOrders: [15, 16, 17, 18, 19]
+  });
+  let unloadedTopStrategy = 0;
+  let unloadedRatioFallback = 0;
+  unloadedAdapter._jumpToUnloadedHistory = async () => { unloadedTopStrategy++; return ratioElement; };
+  unloadedAdapter._fallbackScrollByUserOrder = async () => { unloadedRatioFallback++; return null; };
+  assert.equal(await unloadedAdapter.jumpToTimelineMarker({
+    id: 'chatgpt-u11', sourceId: 'u11', aliasIds: ['u11'], userOrder: 11
+  }, { scrollContainer: bracketScroll, isCurrent: () => true }), ratioElement);
+  assert.equal(unloadedTopStrategy, 1);
+  assert.equal(unloadedRatioFallback, 0,
+    'a target before the loaded stable-ID range never enters full-history ratio positioning');
+
+  // A real tracker must catch delayed pagination and advance only on actual
+  // earlier Key progress. The intermediate edge must never become the result.
+  const edgeAdapter = new context.window.__TestChatGPTAdapter();
+  edgeAdapter._capturedTurns = Array.from({ length: 54 }, (_, i) => ({
+    id: `u${i + 1}`, messageId: `m${i + 1}`, ids: [`u${i + 1}`, `m${i + 1}`], userOrder: i + 1
+  }));
+  const edgeTarget = { id: 'chatgpt-u10', sourceId: 'u10', userOrder: 10 };
+  const edgeCommands = [], alignedEdges = [], edgeWrites = [];
+  let edgeOrders = [39, 40, 54];
+  let edgePagePending = false;
+  const edgeScroll = { scrollHeight: 43140, clientHeight: 828,
+    get scrollTop() { return 42312; }, set scrollTop(value) { edgeWrites.push(value); }
+  };
+  edgeAdapter._buildVirtualIndexPlan = marker => ({ strategy: 'virtual-item-key-or-bounded-ratio', targetIds: [marker.sourceId] });
+  edgeAdapter._requestVirtualizerJump = async (plan, marker) => {
+    assert.equal(plan.requireSettledNativeKey, true);
+    assert.equal(edgePagePending, false, 'do not issue another scroll during native pagination');
+    edgeCommands.push(marker.userOrder);
+    assert.equal(plan.targetIds[0], `u${marker.userOrder}`);
+    return { ok: true, indexStrategy: 'native-turn-key', nativeCommandIssued: true };
+  };
+  edgeAdapter._queryNativeKeyState = async () => ({ turnUserOrders: edgeOrders, targetKeyLoaded: edgeOrders.includes(10) });
+  edgeAdapter._waitForMarkerMount = async marker => ({ element: marker.userOrder === 10 ? ratioElement : null });
+  edgeAdapter._restoreReadingAnchor = async () => { throw new Error('unexpected restore'); };
+  edgeAdapter._fallbackScrollByUserOrder = async () => { throw new Error('unexpected ratio fallback'); };
+  const edgeBudget = { remaining: 8 };
+  const edgeContext = {
+    scrollContainer: edgeScroll, isCurrent: () => true,
+    navigationDeadline: Date.now() + 9000, searchBudget: edgeBudget,
+    alignHistoryBoundary: async marker => {
+      alignedEdges.push(marker.userOrder);
+      const requestId = marker.userOrder;
+      setTimeout(() => {
+        edgePagePending = true;
+        adapterDocument.dispatchEvent(new FakeCustomEvent('ait-gpt-native-history-pagination', {
+          detail: JSON.stringify({ requestId, conversationId: 'test-conversation', stage: 'request' })
+        }));
+        setTimeout(() => {
+          edgePagePending = false;
+          adapterDocument.dispatchEvent(new FakeCustomEvent('ait-gpt-native-history-pagination', {
+            detail: JSON.stringify({ requestId, conversationId: 'test-conversation', stage: 'response', ok: true })
+          }));
+          // HTTP completion is not React Key progress yet.
+          setTimeout(() => { edgeOrders = requestId === 39 ? [24, 39, 54] : [10, 24, 39, 54]; }, 40);
+        }, 40);
+      }, 35);
+      return true;
+    }
+  };
+  assert.equal(await edgeAdapter._jumpToUnloadedHistory(edgeTarget, edgeContext,
+    { turnUserOrders: edgeOrders }, null), ratioElement);
+  assert.deepEqual(edgeCommands, [39, 24, 10]);
+  assert.deepEqual(alignedEdges, [39, 24]);
+  assert.deepEqual(edgeWrites, [], 'never probe scrollTop=0 for unloaded history');
+  assert.equal(edgeBudget.remaining, 7, 'only final positioning uses the pixel-search budget');
+  assert.equal(edgeTarget._aitNavigationStrategy, 'native-turn-key');
+
+  // A settled boundary scroll can move the list without mounting that edge.
+  // Re-enter the existing mounted-Q bounded correction, then keep paging.
+  edgeCommands.length = 0;
+  edgeOrders = [39, 40, 54];
+  const successfulBoundaryJump = edgeAdapter._requestVirtualizerJump;
+  const rejectingFallback = edgeAdapter._fallbackScrollByUserOrder;
+  let movedBoundaryRecoveries = 0;
+  edgeAdapter._requestVirtualizerJump = async (plan, marker) => {
+    edgeCommands.push(marker.userOrder);
+    if (marker.userOrder === 39) {
+      return { ok: false, reason: 'target-key-moved-without-target',
+        nativeCommandIssued: true, stateChanged: true, indexStrategy: 'native-turn-key' };
+    }
+    return { ok: true, nativeCommandIssued: true, indexStrategy: 'native-turn-key' };
+  };
+  edgeAdapter._fallbackScrollByUserOrder = async (marker, recoveryContext, restoreTop, options) => {
+    movedBoundaryRecoveries++;
+    assert.equal(marker.userOrder, 39);
+    assert.equal(options.requireMountedEvidence, true);
+    assert.ok(options.maxAttempts <= 2);
+    return { isConnected: true };
+  };
+  edgeAdapter._queryNativeKeyState = async () => ({
+    turnUserOrders: edgeOrders, targetKeyLoaded: edgeOrders.includes(10)
+  });
+  assert.equal(await edgeAdapter._jumpToUnloadedHistory(edgeTarget, {
+    ...edgeContext, searchBudget: { remaining: 8 }, navigationDeadline: Date.now() + 4000,
+    alignHistoryBoundary: async marker => {
+      assert.equal(marker.userOrder, 39);
+      adapterDocument.dispatchEvent(new FakeCustomEvent('ait-gpt-native-history-pagination', {
+        detail: JSON.stringify({ requestId: 390, conversationId: 'test-conversation', stage: 'request' })
+      }));
+      edgeOrders = [10, 39, 40, 54];
+      adapterDocument.dispatchEvent(new FakeCustomEvent('ait-gpt-native-history-pagination', {
+        detail: JSON.stringify({ requestId: 390, conversationId: 'test-conversation', stage: 'response', ok: true })
+      }));
+      return true;
+    }
+  }, { turnUserOrders: [39, 40, 54] }, null), ratioElement);
+  assert.equal(movedBoundaryRecoveries, 1);
+  assert.deepEqual(edgeCommands, [39, 10],
+    'a moved-without-target boundary is locally recovered before pagination continues');
+  edgeAdapter._requestVirtualizerJump = successfulBoundaryJump;
+  edgeAdapter._fallbackScrollByUserOrder = rejectingFallback;
+
+  // More than eight native boundary hops must not exhaust the pixel budget.
+  edgeCommands.length = 0;
+  edgeOrders = [54];
+  const longEdgeBudget = { remaining: 8 };
+  const renewals = [];
+  assert.equal(await edgeAdapter._jumpToUnloadedHistory(edgeTarget, {
+    ...edgeContext, searchBudget: longEdgeBudget,
+    navigationDeadline: Date.now() + 9000,
+    extendHistoryNavigation: deadline => renewals.push(deadline),
+    alignHistoryBoundary: async marker => {
+      const requestId = marker.userOrder;
+      adapterDocument.dispatchEvent(new FakeCustomEvent('ait-gpt-native-history-pagination', {
+        detail: JSON.stringify({ requestId, conversationId: 'test-conversation', stage: 'request' })
+      }));
+      edgeOrders = Array.from({length: 5}, (_, i) => requestId - 5 + i).concat(edgeOrders);
+      adapterDocument.dispatchEvent(new FakeCustomEvent('ait-gpt-native-history-pagination', {
+        detail: JSON.stringify({ requestId, conversationId: 'test-conversation', stage: 'response', ok: true })
+      }));
+      return true;
+    }
+  }, { turnUserOrders: edgeOrders }, null), ratioElement);
+  assert.deepEqual(edgeCommands, [54, 49, 44, 39, 34, 29, 24, 19, 14, 10]);
+  assert.equal(renewals.length, 9);
+  assert.equal(longEdgeBudget.remaining, 7);
+
+  // A native page may start after the original 850ms + 450ms window.
+  // Preserve the existing deadline without issuing another boundary scroll.
+  edgeCommands.length = 0;
+  edgeOrders = [25, 54];
+  assert.equal(await edgeAdapter._jumpToUnloadedHistory(edgeTarget, {
+    ...edgeContext, searchBudget: { remaining: 8 },
+    navigationDeadline: Date.now() + 4000,
+    alignHistoryBoundary: async marker => {
+      assert.equal(marker.userOrder, 25);
+      setTimeout(() => {
+        edgePagePending = true;
+        adapterDocument.dispatchEvent(new FakeCustomEvent('ait-gpt-native-history-pagination', {
+          detail: JSON.stringify({ requestId: 25, conversationId: 'test-conversation', stage: 'request' })
+        }));
+        setTimeout(() => {
+          edgePagePending = false;
+          adapterDocument.dispatchEvent(new FakeCustomEvent('ait-gpt-native-history-pagination', {
+            detail: JSON.stringify({ requestId: 25, conversationId: 'test-conversation', stage: 'response', ok: true })
+          }));
+          setTimeout(() => { edgeOrders = [10, 25, 54]; }, 40);
+        }, 40);
+      }, 1800);
+      return true;
+    }
+  }, { turnUserOrders: edgeOrders }, null), ratioElement);
+  assert.deepEqual(edgeCommands, [25, 10], 'a delayed native page is awaited without another edge jump');
+
+  edgeCommands.length = 0;
+  edgeAdapter._requestVirtualizerJump = async (plan, marker) => {
+    edgeCommands.push(marker.userOrder);
+    return { ok: false, reason: 'command-promise-pending', nativeCommandIssued: true };
+  };
+  assert.equal(await edgeAdapter._jumpToUnloadedHistory(edgeTarget, {
+    ...edgeContext, searchBudget: { remaining: 8 },
+    alignHistoryBoundary: async () => { throw new Error('pending native command must not align'); }
+  }, { turnUserOrders: [39, 54] }, null), null);
+  assert.deepEqual(edgeCommands, [39]);
+
+  edgeCommands.length = 0;
+  edgeAdapter._requestVirtualizerJump = async (plan, marker) => {
+    edgeCommands.push(marker.userOrder);
+    return { ok: true, indexStrategy: 'native-turn-key' };
+  };
+  edgeAdapter._queryNativeKeyState = async () => ({ turnUserOrders: [39, 54], targetKeyLoaded: false });
+  edgeAdapter._restoreReadingAnchor = async () => false;
+  assert.equal(await edgeAdapter._jumpToUnloadedHistory(edgeTarget, {
+    ...edgeContext, searchBudget: { remaining: 8 }, navigationDeadline: Date.now() + 1700,
+    alignHistoryBoundary: async () => true
+  }, { turnUserOrders: [39, 54] }, null), null);
+  assert.deepEqual(edgeCommands, [39], 'no paging or Key progress means no repeated edge jump');
+
+  // A verified visible edge can need a small local top nudge to trigger
+  // another native page. This is never a raw jump from a distant position.
+  edgeCommands.length = 0;
+  edgeOrders = [25, 54];
+  let localTop = 486, localWrites = 0, localQueries = 0;
+  const localEdge = { isConnected: true };
+  const localScroll = {
+    isConnected: true, clientHeight: 828,
+    contains: element => element === localEdge,
+    getBoundingClientRect: () => ({ top: 0, bottom: 828 }),
+    get scrollTop() { return localTop; },
+    set scrollTop(value) {
+      assert.equal(value, 0);
+      localTop = value;
+      localWrites++;
+      adapterDocument.dispatchEvent(new FakeCustomEvent('ait-gpt-native-history-pagination', {
+        detail: JSON.stringify({ requestId: 250, conversationId: 'test-conversation', stage: 'request' })
+      }));
+      edgePagePending = true;
+      setTimeout(() => {
+        edgePagePending = false;
+        adapterDocument.dispatchEvent(new FakeCustomEvent('ait-gpt-native-history-pagination', {
+          detail: JSON.stringify({ requestId: 250, conversationId: 'test-conversation', stage: 'response', ok: true })
+        }));
+        setTimeout(() => { edgeOrders = [10, 25, 54]; }, 40);
+      }, 40);
+    }
+  };
+  edgeAdapter.resolveTimelineElement = marker => marker.userOrder === 25 ? localEdge : null;
+  edgeAdapter.getTimelineMessageRect = () => ({ top: 20, bottom: 80 });
+  edgeAdapter._queryNativeKeyState = async () => {
+    localQueries++;
+    return { turnUserOrders: edgeOrders, targetKeyLoaded: edgeOrders.includes(10) };
+  };
+  assert.equal(await edgeAdapter._jumpToUnloadedHistory(edgeTarget, {
+    ...edgeContext, scrollContainer: localScroll, searchBudget: { remaining: 8 },
+    navigationDeadline: Date.now() + 4000, alignHistoryBoundary: async () => true
+  }, { turnUserOrders: edgeOrders }, null), ratioElement);
+  assert.deepEqual(edgeCommands, [25, 10]);
+  assert.equal(localWrites, 1, 'a quiet visible edge gets only one local top nudge');
+  assert.ok(localQueries <= 4, 'quiet edge avoids burst polling');
+  localTop = 12000;
+  const quietTracker = { hasRelevantEvent: () => false };
+  assert.equal(edgeAdapter._tryLocalHistoryTop({ userOrder: 25 }, { scrollContainer: localScroll }, quietTracker, () => true), false);
+  localTop = 486;
+  assert.equal(edgeAdapter._tryLocalHistoryTop({ userOrder: 25 }, { scrollContainer: localScroll }, { hasRelevantEvent: () => true }, () => true), false);
+  assert.equal(edgeAdapter._tryLocalHistoryTop({ userOrder: 25 }, { scrollContainer: localScroll }, quietTracker, () => false), false);
+  assert.equal(localWrites, 1, 'distant, pending or cancelled navigation cannot nudge');
+
+  const recoveryAdapter = new context.window.__TestChatGPTAdapter();
+  recoveryAdapter.resolveTimelineElement = () => null;
+  const recoveryBudget = { remaining: 5 };
+  let recoveryOptions = null;
+  recoveryAdapter._fallbackScrollByUserOrder = async (marker, recoveryContext, restoreTop, options) => {
+    recoveryOptions = options;
+    return ratioElement;
+  };
+  assert.equal(await recoveryAdapter.recoverDisplacedTimelineMarker({ userOrder: 10 }, {
+    scrollContainer: bracketScroll, isCurrent: () => true,
+    navigationDeadline: Date.now() + 5000, searchBudget: recoveryBudget
+  }), ratioElement);
+  assert.equal(recoveryOptions.maxAttempts, undefined,
+    'displacement recovery reuses bounded correction instead of a one-shot ratio write');
+  assert.equal(recoveryOptions.searchBudget, recoveryBudget,
+    'displacement recovery shares the original navigation write budget');
+
+  const paginationAdapter = new context.window.__TestChatGPTAdapter();
+  paginationAdapter._capturedTurns = Array.from({ length: 33 }, (_, index) => ({
+    id: `u${index + 1}`, messageId: `m${index + 1}`, ids: [`u${index + 1}`, `m${index + 1}`],
+    userOrder: index + 1
+  }));
+  paginationAdapter._captureReadingAnchor = () => null;
+  paginationAdapter._sampleMountedUserOrderState = container => ({
+    range: { min: 21, max: 23, anchors: [] }, stable: true,
+    scrollTop: container.scrollTop, scrollHeight: container.scrollHeight,
+    maxScrollTop: container.scrollHeight - container.clientHeight
+  });
+  paginationAdapter._buildVirtualIndexPlan = () => protocolPlan;
+  paginationAdapter._requestVirtualizerJump = async () => ({
+    ok: true, targetKeyLoaded: true, nativeKeyCount: 33, indexStrategy: 'native-turn-key'
+  });
+  const paginationTarget = { isConnected: true };
+  let paginationMountChecks = 0;
+  paginationAdapter._waitForMarkerMount = async () => {
+    paginationMountChecks++;
+    if (paginationMountChecks === 1) {
+      adapterDocument.dispatchEvent(new FakeCustomEvent('ait-gpt-native-history-pagination', {
+        detail: JSON.stringify({ requestId: 1, conversationId: 'test-conversation', stage: 'request' })
+      }));
+      setTimeout(() => adapterDocument.dispatchEvent(new FakeCustomEvent('ait-gpt-native-history-pagination', {
+        detail: JSON.stringify({ requestId: 1, conversationId: 'test-conversation', stage: 'response', ok: true })
+      })), 1700);
+    }
+    return { element: paginationMountChecks >= 2 ? paginationTarget : null, mountMs: 1, mutations: 0 };
+  };
+  const paginationScroll = { scrollHeight: 20000, clientHeight: 500, scrollTop: 15000 };
+  assert.equal(await paginationAdapter._fallbackScrollByUserOrder({
+    id: 'chatgpt-u12', sourceId: 'u12', aliasIds: ['u12', 'm12'], userOrder: 12
+  }, { scrollContainer: paginationScroll, isCurrent: () => true }, null,
+  { maxAttempts: 1, restoreOnFailure: false }), paginationTarget,
+  'an in-flight native history page beyond the old 1600ms cap is awaited and the refreshed Key list is retried');
+
   const failingAdapter = new context.window.__TestChatGPTAdapter();
   failingAdapter._capturedTurns = cachedAdapter._capturedTurns;
   failingAdapter._findIdentityAnchor = () => null;
@@ -958,7 +1793,8 @@ async function testChatGPTJumpIsBoundedAndNeverScans() {
     id: 'chatgpt-u16', sourceId: 'u16', messageId: 'm16', aliasIds: ['u16', 'm16'], userOrder: 16
   }, { scrollContainer: failedScroll, isCurrent: () => true }), null,
   'a search without mounted stable-ID evidence reports failure');
-  assert.equal(failedScroll.scrollTop, 19000, 'failed bounded search restores the pre-click reading position');
+  assert.notEqual(failedScroll.scrollTop, 19000,
+    'without a stable reading identity, failure must not claim restoration by writing an old pixel');
 }
 
 async function testCapturedApiTriggersInitialization() {
@@ -973,6 +1809,7 @@ async function testCapturedApiTriggersInitialization() {
   const adapter = {
     platformId: 'chatgpt',
     isConversationRoute: () => true,
+    hasTimelineData: () => apiReady,
     getTimelineInitializationState: () => ({ selector: '[data-ait-turn="user"]', userDom: false, apiIndex: apiReady, anchor: null, ready: apiReady, reason: apiReady ? 'api-index' : 'none' }),
     syncCapturedChatsData() {},
     prepareTimelineNodes() {},
@@ -1022,7 +1859,7 @@ async function testCapturedApiTriggersInitialization() {
   await testQuestionListActivationWaitsForNavigation();
   await testChatGPTJumpIsBoundedAndNeverScans();
   await testCapturedApiTriggersInitialization();
-  console.log('PASS: 100+ turns, Q44→Q28/Q1→Q44 mounting, attachment IDs, both controller signatures, bounded no-op handling, list activation, isolation, and last-click-wins.');
+  console.log('PASS: stable-ID/cache priority, native Key assistance, bounded Q-range fallback, 30px final alignment, restoration, and last-click-wins.');
 })().catch(error => {
   console.error(error);
   process.exitCode = 1;

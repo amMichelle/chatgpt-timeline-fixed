@@ -146,7 +146,7 @@ class ChatGPTAdapter extends SiteAdapter {
             pendingUsers: this._capturedPendingUserIds.size,
             version: this._capturedVersion
         });
-        if (window.AITGPTDiagnostics) {
+        if (window.AITGPTDiagnostics?.verbose) {
             const elements = [
                 ...this._getModernTurnRoots(),
                 ...Array.from(document.querySelectorAll('[data-turn-id-container], [data-turn-id]'))
@@ -230,6 +230,25 @@ class ChatGPTAdapter extends SiteAdapter {
      */
     syncCapturedChatsData() {
         const convId = this.extractConversationId(location.pathname);
+        // Temporary Chat has no durable conversation id/API snapshot. Keep its
+        // index entirely in this adapter instance and never ask the history
+        // bridge to create a cache bucket for it.
+        if (!convId) {
+            if (this._textCacheConvId !== null) {
+                this._textCacheConvId = null;
+                this._turnTextCache.clear();
+                this._capturedTextIds.clear();
+                this._capturedMatchTexts.clear();
+                this._capturedTurns = [];
+                this._capturedComplete = false;
+                this._capturedSource = 'temporary-dom';
+                this._domOnlyTurns = [];
+                this._scrollPositionByMessageId.clear();
+                this._virtualIndexByMessageId.clear();
+            }
+            this._capturedSource = 'temporary-dom';
+            return;
+        }
         if (convId !== this._textCacheConvId) {
             // 切换对话：失效缓存归属
             this._textCacheConvId = convId;
@@ -343,7 +362,7 @@ class ChatGPTAdapter extends SiteAdapter {
         raw.forEach(candidate => {
             const root = candidate.closest?.('[data-turn-key]') || candidate;
             if (!root?.isConnected || seen.has(root)) return;
-            if (root.closest('form, nav, aside, [data-composer-input], .ProseMirror, .ait-chat-timeline-wrapper')) return;
+            if (root.closest?.('form, nav, aside, [data-composer-input], .ProseMirror, .ait-chat-timeline-wrapper')) return;
             const parentTurn = root.parentElement?.closest?.(ChatGPTAdapter.MODERN_TURN_SELECTOR);
             if (parentTurn && parentTurn !== root) return;
             seen.add(root);
@@ -468,11 +487,13 @@ class ChatGPTAdapter extends SiteAdapter {
         this._usesHeadingTurnSelector = !this._usesModernTurnSelector && !this._usesVirtualizedTurnSelector
             && !document.querySelector('[data-turn="user"][data-turn-id]') && !!window.AITChatGPTRolloutDOM?.markTurns();
         this._turnRolesDirty = false;
-        window.AITGPTDiagnostics?.log('timeline.init-stage', {
-            stage: 'adapter-prepared', modernTurns: this._getModernTurnRoots().length,
-            modernUsers: modern.matchedUsers, apiUsers: this._capturedTurns.length,
-            legacyVirtual: this._usesVirtualizedTurnSelector, headings: this._usesHeadingTurnSelector
-        });
+        if (window.AITGPTDiagnostics?.verbose) {
+            window.AITGPTDiagnostics.log('timeline.init-stage', {
+                stage: 'adapter-prepared', modernTurns: this._getModernTurnRoots().length,
+                modernUsers: modern.matchedUsers, apiUsers: this._capturedTurns.length,
+                legacyVirtual: this._usesVirtualizedTurnSelector, headings: this._usesHeadingTurnSelector
+            });
+        }
         return true;
     }
 
@@ -570,8 +591,61 @@ class ChatGPTAdapter extends SiteAdapter {
      */
     getTimelineEntries(userTurnElements = []) {
         // ChatGPT DOM is only a virtual render window. Never let it define Q1 or
-        // the total node count; wait for a confirmed complete API index.
-        if (!this._capturedComplete) return [];
+        // the total node count for a durable conversation. Temporary Chat has
+        // no history API, so append stable, actually observed user turns to an
+        // in-memory-only index instead.
+        if (!this._capturedComplete) {
+            if (!this.isTransientConversation()) return [];
+            const known = new Map();
+            this._domOnlyTurns.forEach(turn => {
+                [turn.id, ...(turn.aliases || [])].filter(Boolean)
+                    .forEach(id => known.set(id, turn));
+            });
+            Array.from(userTurnElements || []).forEach(element => {
+                if (!this._isRenderedMessageElement(element)) return;
+                const aliases = this._getDomIdCandidates(element);
+                const sourceId = aliases[0];
+                if (!sourceId) return;
+                const existing = aliases.map(id => known.get(id)).find(Boolean);
+                const summary = this.extractText(element) || '[未加载的提问]';
+                if (existing) {
+                    existing.element = element;
+                    if (!this.isPlaceholderSummary(summary)) existing.summary = summary;
+                    existing.aliases = Array.from(new Set([...(existing.aliases || []), ...aliases]));
+                    aliases.forEach(id => known.set(id, existing));
+                    return;
+                }
+                const turn = {
+                    id: sourceId,
+                    aliases: Array.from(new Set(aliases)),
+                    element,
+                    summary,
+                    userOrder: this._domOnlyTurns.length + 1
+                };
+                this._domOnlyTurns.push(turn);
+                turn.aliases.forEach(id => known.set(id, turn));
+            });
+            const mountedById = new Map();
+            Array.from(userTurnElements || []).forEach(element => {
+                this._getDomIdCandidates(element).forEach(id => mountedById.set(id, element));
+            });
+            return this._domOnlyTurns.map((turn, index) => {
+                const element = turn.aliases.map(id => mountedById.get(id)).find(Boolean) || null;
+                return {
+                    id: `chatgpt-${turn.id}`,
+                    sourceId: turn.id,
+                    aliasIds: turn.aliases,
+                    element,
+                    summary: turn.summary,
+                    messageId: turn.id,
+                    messageIndex: index + 1,
+                    totalMessages: this._domOnlyTurns.length,
+                    userOrder: index + 1,
+                    virtual: !element,
+                    transient: true
+                };
+            });
+        }
 
         const elements = Array.from(userTurnElements || []);
         const domById = new Map();
@@ -628,38 +702,52 @@ class ChatGPTAdapter extends SiteAdapter {
 
     _isRenderedMessageElement(element) {
         if (!element?.isConnected) return false;
+        return !!this._findRenderedUserContent(element);
+    }
+
+    _findRenderedUserContent(element) {
+        if (!element?.isConnected) return null;
         const hasRenderedBox = node => {
             if (!node) return false;
             if (typeof node.getBoundingClientRect !== 'function') return true;
             const rect = node.getBoundingClientRect();
             return rect.width > 0 && rect.height > 0;
         };
-        const attachmentSelector = [
-            'img', 'video', 'audio', 'canvas', 'button', 'a', '[role="button"]',
-            '[data-attachment-kind]', '[data-file-id]', '[data-asset-id]',
-            '[data-testid*="attachment"]', '[data-testid*="file"]', '[data-testid*="image"]'
-        ].join(',');
-        const attachments = [
-            ...(element.matches?.(attachmentSelector) ? [element] : []),
-            ...Array.from(element.querySelectorAll?.(attachmentSelector) || [])
-        ];
-        if (attachments.some(hasRenderedBox)) return true;
-
-        // Identity attributes locate a turn, but do not prove that React has
-        // rendered its content. Require laid-out content with real text so a
-        // virtual spacer shell cannot become a successful jump target.
         const contentSelector = [
+            '[data-message-author-role="user"]',
+            '[data-testid="user-message"]', '[data-testid*="user-message"]',
             '[data-chatgpt-selection-message-id]', '[data-message-id]',
-            '[data-message-author-role="user"]', '[data-turn="user"]',
-            '.markdown', '.whitespace-pre-wrap'
+            '[class*="user-message-bubble"]',
+            '.whitespace-pre-wrap', '.markdown'
         ].join(',');
         const contentNodes = [
             ...(element.matches?.(contentSelector) ? [element] : []),
             ...Array.from(element.querySelectorAll?.(contentSelector) || [])
         ];
-        return contentNodes.some(node => hasRenderedBox(node)
-            && !!String(node.textContent || element.textContent || '').trim());
+        const attachmentSelector = [
+            'img', 'video', 'audio', 'canvas',
+            '[data-attachment-kind]', '[data-file-id]', '[data-asset-id]',
+            '[data-testid*="attachment"]', '[data-testid*="file"]', '[data-testid*="image"]'
+        ].join(',');
+        for (const node of contentNodes) {
+            if (!hasRenderedBox(node)
+                || node.closest?.('form, nav, aside, [data-composer-input], .ProseMirror')
+                || node.closest?.('[data-turn="assistant"], [data-message-author-role="assistant"]')) continue;
+            const hasText = !!String(node.textContent || '').replace(/\s+/g, ' ').trim();
+            const hasAttachment = [
+                ...(node.matches?.(attachmentSelector) ? [node] : []),
+                ...Array.from(node.querySelectorAll?.(attachmentSelector) || [])
+            ].some(hasRenderedBox);
+            if (hasText || hasAttachment) return node;
+        }
+        // Pure image/file questions may not have a text wrapper at all.
+        const directAttachments = Array.from(element.querySelectorAll?.(attachmentSelector) || []);
+        const renderedAttachment = directAttachments.find(node => hasRenderedBox(node)
+            && !node.closest?.('form, nav, aside, [data-composer-input], .ProseMirror'));
+        if (renderedAttachment) return renderedAttachment;
+        return null;
     }
+
 
     _readDomVirtualIndex(element) {
         if (!element) return null;
@@ -768,6 +856,10 @@ class ChatGPTAdapter extends SiteAdapter {
         if (!cached || !Number.isFinite(cached.top)) return null;
         const currentMax = Math.max(0, scrollContainer.scrollHeight - scrollContainer.clientHeight);
         if (!(currentMax > 0)) return null;
+        if (cached.maxScrollTop > 0) {
+            const heightRatio = currentMax / cached.maxScrollTop;
+            if (heightRatio < 0.75 || heightRatio > 1.25) return null;
+        }
         const scaledTop = cached.maxScrollTop > 0
             ? cached.top * (currentMax / cached.maxScrollTop) : cached.top;
         return Math.max(0, Math.min(currentMax, scaledTop));
@@ -778,6 +870,10 @@ class ChatGPTAdapter extends SiteAdapter {
         this._capturedTurns.forEach(turn => {
             [turn.id, turn.nodeId, turn.messageId, ...(turn.ids || [])].filter(Boolean)
                 .forEach(id => orderByAlias.set(id, turn.userOrder));
+        });
+        this._domOnlyTurns.forEach((turn, index) => {
+            [turn.id, ...(turn.aliases || [])].filter(Boolean)
+                .forEach(id => orderByAlias.set(id, index + 1));
         });
         const anchors = [];
         const containerRect = scrollContainer?.getBoundingClientRect?.() || { top: 0 };
@@ -806,13 +902,391 @@ class ChatGPTAdapter extends SiteAdapter {
         } : null;
     }
 
+    _sampleMountedUserOrderState(scrollContainer) {
+        if (!scrollContainer) return null;
+        const beforeTop = Number(scrollContainer.scrollTop) || 0;
+        const beforeHeight = Number(scrollContainer.scrollHeight) || 0;
+        const range = this._getMountedUserOrderRange(scrollContainer);
+        const scrollTop = Number(scrollContainer.scrollTop) || 0;
+        const scrollHeight = Number(scrollContainer.scrollHeight) || 0;
+        const maxScrollTop = Math.max(0, scrollHeight - (Number(scrollContainer.clientHeight) || 0));
+        return {
+            range,
+            scrollTop,
+            scrollHeight,
+            maxScrollTop,
+            stable: Math.abs(scrollTop - beforeTop) <= 2
+                && Math.abs(scrollHeight - beforeHeight) <= 4
+        };
+    }
+
+    _captureReadingAnchor(scrollContainer) {
+        if (!scrollContainer) return null;
+        const containerRect = scrollContainer.getBoundingClientRect?.() || { top: 0, bottom: 0 };
+        const candidates = [];
+        const seen = new Set();
+        const roots = [
+            ...this._getModernTurnRoots(),
+            ...Array.from(document.querySelectorAll?.('[data-turn-id-container], [data-turn-id], [data-message-id]') || [])
+        ];
+        roots.forEach(element => {
+            if (!element?.isConnected || seen.has(element) || !this._isRenderedMessageElement(element)) return;
+            seen.add(element);
+            const ids = element.matches?.(ChatGPTAdapter.MODERN_TURN_SELECTOR)
+                ? this._getModernRoleIdCandidates(element)
+                : this._getDomIdCandidates(element, { includeWeak: false });
+            if (!ids.length) return;
+            const rect = this.getTimelineMessageRect(element) || element.getBoundingClientRect?.();
+            if (!rect || rect.bottom <= containerRect.top || rect.top >= containerRect.bottom) return;
+            candidates.push({
+                ids: Array.from(new Set(ids)),
+                offset: rect.top - containerRect.top,
+                distance: Math.abs(rect.top - containerRect.top - 30)
+            });
+        });
+        candidates.sort((left, right) => left.distance - right.distance);
+        return candidates[0] || null;
+    }
+
+    async _restoreReadingAnchor(anchor, scrollContainer, isCurrent) {
+        if (!anchor?.ids?.length || !scrollContainer || !isCurrent()) return false;
+        const marker = { sourceId: anchor.ids[0], aliasIds: anchor.ids };
+        let element = this._findIdentityAnchor(marker);
+        if (!this._isRenderedMessageElement(element)) return false;
+        const containerRect = scrollContainer.getBoundingClientRect?.() || { top: 0 };
+        const rect = this.getTimelineMessageRect(element) || element.getBoundingClientRect?.();
+        if (!rect) return false;
+        const correction = rect.top - containerRect.top - anchor.offset;
+        if (Math.abs(correction) > 2) scrollContainer.scrollTop += correction;
+        await new Promise(resolve => {
+            if (typeof requestAnimationFrame === 'function') requestAnimationFrame(resolve);
+            else setTimeout(resolve, 0);
+        });
+        if (!isCurrent()) return false;
+        element = this._findIdentityAnchor(marker);
+        if (!this._isRenderedMessageElement(element)) return false;
+        const verifiedRect = this.getTimelineMessageRect(element) || element.getBoundingClientRect?.();
+        const verifiedContainerRect = scrollContainer.getBoundingClientRect?.() || { top: 0 };
+        return !!verifiedRect
+            && Math.abs((verifiedRect.top - verifiedContainerRect.top) - anchor.offset) <= 8;
+    }
+
+    _createHistoryPaginationTracker() {
+        const conversationId = this.extractConversationId(location.pathname);
+        const active = new Set();
+        let completionCount = 0;
+        let consumedCompletions = 0;
+        let lastResponseOk = false;
+        const handler = event => {
+            let detail = null;
+            try { detail = JSON.parse(typeof event.detail === 'string' ? event.detail : '{}'); } catch {}
+            if (!detail || detail.conversationId !== conversationId || !Number.isFinite(detail.requestId)) return;
+            if (detail.stage === 'request') active.add(detail.requestId);
+            else if (detail.stage === 'response') {
+                active.delete(detail.requestId);
+                completionCount++;
+                lastResponseOk = detail.ok === true;
+            }
+        };
+        document.addEventListener('ait-gpt-native-history-pagination', handler);
+        return {
+            hasRelevantEvent() {
+                return active.size > 0 || completionCount > consumedCompletions;
+            },
+            async waitForRelevant(isCurrent, timeoutMs = 1600, startGraceMs = 0) {
+                const deadline = Date.now() + timeoutMs;
+                const startDeadline = Math.min(deadline, Date.now() + startGraceMs);
+                while (!this.hasRelevantEvent() && isCurrent() && Date.now() < startDeadline) {
+                    await new Promise(resolve => setTimeout(resolve, 25));
+                }
+                if (!this.hasRelevantEvent()) return { observed: false, completed: false, ok: false };
+                while (active.size > 0 && isCurrent() && Date.now() < deadline) {
+                    await new Promise(resolve => setTimeout(resolve, 25));
+                }
+                const completed = completionCount > consumedCompletions && active.size === 0;
+                consumedCompletions = completionCount;
+                return { observed: true, completed, ok: completed && lastResponseOk, pending: active.size > 0 };
+            },
+            dispose() {
+                document.removeEventListener('ait-gpt-native-history-pagination', handler);
+            }
+        };
+    }
+
+    _nativeLoadedOrders(state) {
+        const source = Array.isArray(state?.turnUserOrders)
+            ? state.turnUserOrders
+            : Array.isArray(state?.loadedUserOrders) ? state.loadedUserOrders : [];
+        return Array.from(new Set(source.map(Number)
+            .filter(order => Number.isFinite(order) && order > 0)))
+            .sort((left, right) => left - right);
+    }
+
+    _hasEarlierNativeHistoryProgress(previous, current) {
+        const before = this._nativeLoadedOrders(previous);
+        const after = this._nativeLoadedOrders(current);
+        if (!before.length || !after.length) return false;
+        const beforeSet = new Set(before);
+        return after[0] < before[0]
+            || after.some(order => order < before[0] && !beforeSet.has(order));
+    }
+
+    async _waitForNativeKeyUpdate(marker, context, previous, deadline) {
+        let latest = previous;
+        while ((typeof context.isCurrent !== 'function' || context.isCurrent())
+            && Date.now() < deadline) {
+            const remaining = deadline - Date.now();
+            latest = await this._queryNativeKeyState(marker, context,
+                Math.max(250, Math.min(450, remaining)));
+            if (latest?.targetKeyLoaded === true
+                || this._hasEarlierNativeHistoryProgress(previous, latest)) {
+                return latest;
+            }
+            await new Promise(resolve => setTimeout(resolve, 80));
+        }
+        return latest;
+    }
+
+    _tryLocalHistoryTop(boundaryMarker, context, tracker, canContinue) {
+        const sc = context.scrollContainer;
+        const top = Number(sc?.scrollTop);
+        // Only a verified, already reached history edge may receive one local
+        // nudge. Never jump from a distant reading position to raw top=0.
+        if (!canContinue() || tracker.hasRelevantEvent() || !sc?.isConnected
+            || !Number.isFinite(top) || top <= 4 || top > sc.clientHeight) return false;
+        const element = this.resolveTimelineElement(boundaryMarker);
+        if (!element?.isConnected || !sc.contains?.(element)) return false;
+        const rect = this.getTimelineMessageRect(element) || element.getBoundingClientRect?.();
+        const viewport = sc.getBoundingClientRect?.();
+        if (!rect || !viewport || rect.bottom <= viewport.top || rect.top >= viewport.bottom
+            || !canContinue() || tracker.hasRelevantEvent()) return false;
+        const liveTop = Number(sc.scrollTop);
+        if (!Number.isFinite(liveTop) || liveTop <= 4 || liveTop > sc.clientHeight) return false;
+        // One bounded DOM operation; the host may still compensate it. The
+        // caller waits for actual pagination/Key progress, never assumes success.
+        sc.scrollTop = 0;
+        return true;
+    }
+
+    async _jumpToUnloadedHistory(marker, context, initialState, restoreAnchor) {
+        const isCurrent = typeof context.isCurrent === 'function' ? context.isCurrent : () => true;
+        const scrollContainer = context.scrollContainer;
+        const targetOrder = Number(marker?.userOrder);
+        let navigationDeadline = Number(context.navigationDeadline) || Date.now() + 9000;
+        // Network-bound history loading has its own bounded progress window.
+        // Renew only after earlier native Keys (or the target) are verified.
+        const historyHardDeadline = Date.now() + 60000;
+        const maxHistoryPages = 32;
+        const renewAfterProgress = () => {
+            navigationDeadline = Math.max(navigationDeadline,
+                Math.min(historyHardDeadline, Date.now() + 9000));
+            context.extendHistoryNavigation?.(navigationDeadline);
+        };
+        const searchBudget = context.searchBudget || { remaining: 8 };
+        const canContinue = () => isCurrent() && Date.now() < navigationDeadline;
+        const commandTimeout = () => Math.min(1300, navigationDeadline - Date.now());
+        const commandPending = result => result?.promisePendingAfterTarget === true
+            || (result?.nativeCommandIssued === true
+                && ['command-promise-pending', 'bridge-timeout', 'cancelled'].includes(result.reason));
+        let state = initialState;
+        let loadedOrders = this._nativeLoadedOrders(state);
+        if (!scrollContainer || !canContinue() || !loadedOrders.length
+            || !(targetOrder > 0) || targetOrder >= loadedOrders[0]) return null;
+
+        const paginationTracker = this._createHistoryPaginationTracker();
+        const visitedBoundaries = new Set();
+        try {
+            while (canContinue() && searchBudget.remaining > 0 && visitedBoundaries.size < maxHistoryPages) {
+                const boundaryOrder = loadedOrders[0];
+                if (visitedBoundaries.has(boundaryOrder)) break;
+                visitedBoundaries.add(boundaryOrder);
+                // Use the earliest verified native user Key, not a raw top=0 write.
+                const turn = this._capturedTurns.find(item => Number(item.userOrder) === boundaryOrder);
+                if (!turn?.id || typeof context.alignHistoryBoundary !== 'function') break;
+                const boundaryMarker = {
+                    id: `chatgpt-${turn.id}`, sourceId: turn.id, messageId: turn.messageId,
+                    aliasIds: Array.from(new Set([turn.id, turn.nodeId, turn.messageId, ...(turn.ids || [])].filter(Boolean))),
+                    userOrder: boundaryOrder
+                };
+                const boundaryPlan = this._buildVirtualIndexPlan(boundaryMarker);
+                if (!boundaryPlan || commandTimeout() < 350) break;
+                // Boundary hops load history; they are not pixel-search attempts.
+                this._navigationDiagnostic('unloaded-history-native-boundary', marker, context, {
+                    attempt: visitedBoundaries.size, loadedOrderMin: boundaryOrder
+                });
+                const boundaryResult = await this._requestVirtualizerJump(
+                    { ...boundaryPlan, requireSettledNativeKey: true }, boundaryMarker, context, commandTimeout()
+                );
+                if (!canContinue() || commandPending(boundaryResult)) return null;
+                const nativeBoundaryAccepted = boundaryResult?.ok
+                    && boundaryResult.indexStrategy === 'native-turn-key';
+                const boundaryMovedWithoutTarget = boundaryResult?.reason === 'target-key-moved-without-target'
+                    && boundaryResult?.nativeCommandIssued === true;
+                if (!nativeBoundaryAccepted && !boundaryMovedWithoutTarget) break;
+                let boundaryRecoveryAttempted = false;
+                const recoverBoundaryFromMountedRange = async () => {
+                    if (boundaryRecoveryAttempted || !canContinue()
+                        || paginationTracker.hasRelevantEvent() || searchBudget.remaining <= 0) return null;
+                    boundaryRecoveryAttempted = true;
+                    const direct = this.resolveTimelineElement(boundaryMarker);
+                    if (direct) return direct;
+                    const recovered = await this._fallbackScrollByUserOrder(boundaryMarker, {
+                        ...context,
+                        isCurrent: () => canContinue() && !paginationTracker.hasRelevantEvent()
+                    }, null, {
+                        navigationDeadline,
+                        nativeKeyState: state,
+                        searchBudget,
+                        maxAttempts: Math.min(2, searchBudget.remaining),
+                        restoreOnFailure: false,
+                        requireMountedEvidence: true
+                    });
+                    return canContinue() ? recovered : null;
+                };
+                if (boundaryMovedWithoutTarget) {
+                    const recovered = await recoverBoundaryFromMountedRange();
+                    if (!canContinue()) return null;
+                    if (!recovered && !paginationTracker.hasRelevantEvent()) break;
+                    if (recovered) {
+                        this._navigationDiagnostic('unloaded-history-boundary-recovered', marker, context, {
+                            loadedOrderMin: boundaryOrder, attempt: visitedBoundaries.size
+                        });
+                    }
+                }
+                let boundaryAligned = false;
+                if (!paginationTracker.hasRelevantEvent()) {
+                    boundaryAligned = await context.alignHistoryBoundary(boundaryMarker, paginationTracker) === true;
+                    if (!canContinue()) return null;
+                    if (!boundaryAligned && !paginationTracker.hasRelevantEvent()) {
+                        const recovered = await recoverBoundaryFromMountedRange();
+                        if (!canContinue()) return null;
+                        if (recovered) {
+                            boundaryAligned = await context.alignHistoryBoundary(
+                                boundaryMarker, paginationTracker
+                            ) === true;
+                        }
+                    }
+                    if (!boundaryAligned && !paginationTracker.hasRelevantEvent()) break;
+                }
+                let nextState = state;
+                let paginationFailed = false;
+                let sawPagination = false;
+                let triedLocalTop = false;
+                let localTopWritten = false;
+                // A quiet edge may need one local nudge after verified alignment.
+                // Otherwise wait for native pagination and sample Keys sparingly.
+                do {
+                    let localTopWrittenThisPass = false;
+                    let pagination = await paginationTracker.waitForRelevant(
+                        canContinue, Math.max(1, navigationDeadline - Date.now()), 850
+                    );
+                    sawPagination ||= pagination.observed === true;
+                    if (!canContinue() || pagination.pending) break;
+                    if (pagination.completed && !pagination.ok) {
+                        paginationFailed = true;
+                        break;
+                    }
+                    nextState = pagination.completed && pagination.ok
+                        ? await this._waitForNativeKeyUpdate(marker, context, state, navigationDeadline)
+                        : await this._queryNativeKeyState(marker, context,
+                            Math.min(450, navigationDeadline - Date.now()));
+                    if (!canContinue()) break;
+                    // A request can start during the read-only Key check.
+                    // Consume it before permitting any new boundary command.
+                    if (paginationTracker.hasRelevantEvent()) {
+                        pagination = await paginationTracker.waitForRelevant(
+                            canContinue, Math.max(1, navigationDeadline - Date.now()));
+                        sawPagination ||= pagination.observed === true;
+                        if (!canContinue() || pagination.pending) break;
+                        if (pagination.completed && !pagination.ok) {
+                            paginationFailed = true;
+                            break;
+                        }
+                        if (pagination.completed && pagination.ok) {
+                            nextState = await this._waitForNativeKeyUpdate(marker, context, state, navigationDeadline);
+                        }
+                    }
+                    if (!sawPagination && !triedLocalTop && boundaryAligned
+                        && nextState?.targetKeyLoaded !== true
+                        && this._nativeLoadedOrders(nextState)[0] === boundaryOrder
+                        && !this._hasEarlierNativeHistoryProgress(state, nextState)
+                        && canContinue() && !paginationTracker.hasRelevantEvent()) {
+                        triedLocalTop = true;
+                        const beforeTop = scrollContainer.scrollTop;
+                        if (this._tryLocalHistoryTop(boundaryMarker, context, paginationTracker, canContinue)) {
+                            localTopWrittenThisPass = true;
+                            localTopWritten = true;
+                            this._navigationDiagnostic('unloaded-history-local-top', marker, context, {
+                                loadedOrderMin: boundaryOrder, attempt: visitedBoundaries.size,
+                                scrollTopBefore: beforeTop, scrollTopAfter: scrollContainer.scrollTop
+                            });
+                        }
+                    }
+                    if (localTopWritten && !localTopWrittenThisPass && !sawPagination
+                        && nextState?.targetKeyLoaded !== true
+                        && !this._hasEarlierNativeHistoryProgress(state, nextState)
+                        && !paginationTracker.hasRelevantEvent()) break;
+                } while (canContinue() && (paginationTracker.hasRelevantEvent()
+                    || (nextState?.targetKeyLoaded !== true
+                        && !this._hasEarlierNativeHistoryProgress(state, nextState))));
+                if (!canContinue()) {
+                    if (isCurrent()) this._navigationDiagnostic('unloaded-history-progress-timeout', marker, context, {
+                        loadedOrderMin: boundaryOrder, attempt: visitedBoundaries.size,
+                        pending: paginationTracker.hasRelevantEvent()
+                    });
+                    return null;
+                }
+                if (paginationTracker.hasRelevantEvent()) return null;
+                if (paginationFailed) break;
+                if (nextState?.targetKeyLoaded === true) {
+                    renewAfterProgress();
+                    const plan = this._buildVirtualIndexPlan(marker);
+                    if (!plan || searchBudget.remaining <= 0 || commandTimeout() < 350) break;
+                    searchBudget.remaining--;
+                    const result = await this._requestVirtualizerJump(
+                        { ...plan, requireSettledNativeKey: true }, marker, context, commandTimeout()
+                    );
+                    if (!canContinue() || commandPending(result)) return null;
+                    if (result?.ok && result.indexStrategy === 'native-turn-key') {
+                        const waited = await this._waitForMarkerMount(marker, context,
+                            Math.min(900, Math.max(1, navigationDeadline - Date.now())));
+                        if (!canContinue()) return null;
+                        if (waited.element) {
+                            marker._aitNavigationStrategy = result.indexStrategy;
+                            return waited.element;
+                        }
+                    }
+                    if (searchBudget.remaining <= 0 || paginationTracker.hasRelevantEvent()) return null;
+                    paginationTracker.dispose();
+                    return this._fallbackScrollByUserOrder(marker, context, null, {
+                        restoreAnchor, navigationDeadline, nativeKeyState: nextState, searchBudget
+                    });
+                }
+                if (!this._hasEarlierNativeHistoryProgress(state, nextState)) break;
+                renewAfterProgress();
+                state = nextState;
+                loadedOrders = this._nativeLoadedOrders(state);
+                if (!loadedOrders.length) break;
+            }
+            if (canContinue() && !paginationTracker.hasRelevantEvent()) {
+                await this._restoreReadingAnchor(restoreAnchor, scrollContainer, isCurrent);
+            }
+            return null;
+        } finally {
+            paginationTracker.dispose();
+        }
+    }
+
     async _tryKnownTimelinePosition(marker, context) {
         const isCurrent = typeof context.isCurrent === 'function' ? context.isCurrent : () => true;
         const scrollContainer = context.scrollContainer;
         if (!isCurrent() || !scrollContainer) return null;
 
         const identityAnchor = this._findIdentityAnchor(marker);
-        if (identityAnchor && !this._isRenderedMessageElement(identityAnchor)
+        const identityAnchorRendered = this._isRenderedMessageElement(identityAnchor);
+        const modernVirtualShell = identityAnchor?.matches?.(ChatGPTAdapter.MODERN_TURN_SELECTOR)
+            && !identityAnchorRendered;
+        if (identityAnchor && !modernVirtualShell && !identityAnchorRendered
             && typeof identityAnchor.scrollIntoView === 'function') {
             try {
                 identityAnchor.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'instant' });
@@ -834,44 +1308,198 @@ class ChatGPTAdapter extends SiteAdapter {
         return isCurrent() ? waited.element : null;
     }
 
-    async _fallbackScrollByUserOrder(marker, context, restoreTop = null) {
+    async _fallbackScrollByUserOrder(marker, context, restoreTop = null, options = {}) {
         const isCurrent = typeof context.isCurrent === 'function' ? context.isCurrent : () => true;
         const scrollContainer = context.scrollContainer;
         const userOrder = Number(marker?.userOrder);
-        const totalUsers = this._capturedTurns.length;
-        const maxScrollTop = scrollContainer
+        const totalUsers = this._capturedTurns.length || this._domOnlyTurns.length;
+        let maxScrollTop = scrollContainer
             ? Math.max(0, scrollContainer.scrollHeight - scrollContainer.clientHeight) : 0;
         if (!isCurrent() || !scrollContainer || !(maxScrollTop > 0)
             || !(userOrder > 0) || totalUsers < 2) return null;
 
-        const originalTop = Number.isFinite(restoreTop) ? restoreTop : (scrollContainer.scrollTop || 0);
+        const restoreAnchor = options.restoreAnchor || this._captureReadingAnchor(scrollContainer);
         let lowerTop = 0;
         let upperTop = maxScrollTop;
         let nextTop = ((userOrder - 1) / (totalUsers - 1)) * maxScrollTop;
+        const initialSample = this._sampleMountedUserOrderState(scrollContainer);
+        if (options.requireMountedEvidence === true
+            && (!initialSample?.stable || !initialSample.range
+                || (initialSample.range.anchors || []).length < 2)) return null;
+        let lastDirection = 0;
+        if (initialSample?.stable && initialSample.range) {
+            const currentTop = initialSample.scrollTop;
+            if (userOrder < initialSample.range.min) {
+                lastDirection = -1;
+                upperTop = Math.min(upperTop, Math.max(0, currentTop - 1));
+            } else if (userOrder > initialSample.range.max) {
+                lastDirection = 1;
+                lowerTop = Math.max(lowerTop, Math.min(maxScrollTop, currentTop + 1));
+            }
+            const anchors = initialSample.range.anchors || [];
+            if (anchors.length >= 2) {
+                const first = anchors[0];
+                const last = anchors[anchors.length - 1];
+                if (last.order !== first.order && last.top !== first.top) {
+                    const localProjection = first.top
+                        + ((userOrder - first.order) / (last.order - first.order))
+                        * (last.top - first.top);
+                    if (Number.isFinite(localProjection)) nextTop = localProjection;
+                }
+            }
+            nextTop = Math.max(lowerTop, Math.min(upperTop, nextTop));
+        }
         const visited = new Set();
         let attempts = 0;
-        for (let attempt = 0; attempt < 8 && isCurrent(); attempt++) {
+        const searchBudget = options.searchBudget || context.searchBudget || null;
+        const availableAttempts = searchBudget
+            ? Math.max(0, Number(searchBudget.remaining) || 0) : 8;
+        const maxAttempts = Math.min(availableAttempts,
+            Math.max(1, Math.min(8, Number(options.maxAttempts) || 8)));
+        const navigationDeadline = Number(options.navigationDeadline)
+            || Number(context.navigationDeadline) || Date.now() + 9000;
+        let nativeKeyState = options.nativeKeyState || null;
+        const paginationTracker = this._createHistoryPaginationTracker();
+        for (let attempt = 0; attempt < maxAttempts && isCurrent()
+            && Date.now() < navigationDeadline; attempt++) {
+            const liveMax = Math.max(0, scrollContainer.scrollHeight - scrollContainer.clientHeight);
+            if (!(liveMax > 0)) break;
+            if (Math.abs(liveMax - maxScrollTop) > 4) {
+                // A virtual-height refill is not a uniform scale transform.
+                // Discard pixel brackets from the old coordinate system and
+                // rebuild direction from the current real scroll position.
+                maxScrollTop = liveMax;
+                lowerTop = 0;
+                upperTop = liveMax;
+                const currentTop = Math.max(0, Math.min(liveMax, scrollContainer.scrollTop || 0));
+                if (lastDirection < 0) upperTop = Math.max(0, currentTop - 1);
+                else if (lastDirection > 0) lowerTop = Math.min(liveMax, currentTop + 1);
+                nextTop = ((userOrder - 1) / (totalUsers - 1)) * liveMax;
+            }
+            upperTop = Math.min(upperTop, liveMax);
             attempts = attempt + 1;
+            if (searchBudget) searchBudget.remaining = Math.max(0, searchBudget.remaining - 1);
             const boundedTop = Math.max(lowerTop, Math.min(upperTop, nextTop));
-            const key = Math.round(boundedTop / 4);
+            const key = `${Math.round(liveMax / 16)}:${Math.round(boundedTop / 4)}`;
             if (visited.has(key)) break;
             visited.add(key);
+            const writeScrollHeight = scrollContainer.scrollHeight;
             scrollContainer.scrollTop = boundedTop;
             this._navigationDiagnostic('scroll-state-changed', marker, context, {
-                strategy: attempt === 0 ? 'bounded-scroll-ratio' : 'directional-local-correction',
-                attempt: attempt + 1
+                strategy: options.requireMountedEvidence === true
+                    ? 'boundary-local-correction'
+                    : attempt === 0 ? 'bounded-scroll-ratio' : 'directional-local-correction',
+                attempt: attempt + 1, candidateTop: Math.round(boundedTop)
             });
             const waited = await this._waitForMarkerMount(marker, context, attempt === 0 ? 800 : 550);
-            if (!isCurrent()) return null;
-            if (waited.element) return waited.element;
+            if (!isCurrent()) { paginationTracker.dispose(); return null; }
+            if (waited.element) { paginationTracker.dispose(); return waited.element; }
 
-            const range = this._getMountedUserOrderRange(scrollContainer);
+            const pagination = await paginationTracker.waitForRelevant(
+                isCurrent,
+                Math.max(1, navigationDeadline - Date.now())
+            );
+            if (!isCurrent()) { paginationTracker.dispose(); return null; }
+            if (pagination.observed) {
+                this._navigationDiagnostic('native-history-pagination-settled', marker, context, {
+                    completed: pagination.completed,
+                    ok: pagination.ok,
+                    pending: pagination.pending === true,
+                    attempt: attempt + 1
+                });
+            }
+            if (pagination.pending) {
+                // The bounded navigation budget expired while a real native
+                // page is still in flight. Stop without writing an obsolete
+                // reading coordinate or stacking another search operation.
+                paginationTracker.dispose();
+                return null;
+            }
+            if (pagination.completed && pagination.ok) {
+                // HTTP completion precedes React state application. Poll only
+                // the existing Key reader until the target or an earlier stable
+                // user-order match appears; the query never invokes scrolling.
+                const refreshedState = await this._waitForNativeKeyUpdate(
+                    marker, context, nativeKeyState, navigationDeadline
+                );
+                if (!isCurrent()) { paginationTracker.dispose(); return null; }
+                const keyProgressed = this._hasEarlierNativeHistoryProgress(
+                    nativeKeyState, refreshedState
+                );
+                nativeKeyState = refreshedState || nativeKeyState;
+                if (refreshedState?.targetKeyLoaded === true) {
+                    const refreshedPlan = this._buildVirtualIndexPlan(marker);
+                    const refreshedResult = refreshedPlan
+                        ? await this._requestVirtualizerJump(refreshedPlan, marker, context,
+                            Math.max(250, Math.min(900, navigationDeadline - Date.now())))
+                        : null;
+                    if (!isCurrent()) { paginationTracker.dispose(); return null; }
+                    const nativePending = refreshedResult?.nativeCommandIssued === true
+                        && (refreshedResult?.reason === 'command-promise-pending'
+                            || refreshedResult?.reason === 'bridge-timeout');
+                    if (nativePending) { paginationTracker.dispose(); return null; }
+                    const afterNativeWait = await this._waitForMarkerMount(marker, context,
+                        refreshedResult?.targetKeyLoaded === true ? 800 : 250);
+                    if (!isCurrent()) { paginationTracker.dispose(); return null; }
+                    if (afterNativeWait.element) {
+                        marker._aitNavigationStrategy = refreshedResult?.indexStrategy || refreshedPlan?.strategy;
+                        paginationTracker.dispose();
+                        return afterNativeWait.element;
+                    }
+                } else if (!keyProgressed) {
+                    paginationTracker.dispose();
+                    await this._restoreReadingAnchor(restoreAnchor, scrollContainer, isCurrent);
+                    return null;
+                }
+            }
+
+            const sample = this._sampleMountedUserOrderState(scrollContainer);
+            if (!sample) break;
+            const coordinateSystemChanged = Math.abs(sample.scrollHeight - writeScrollHeight) > 8
+                || Math.abs(sample.maxScrollTop - maxScrollTop) > 8;
+            this._navigationDiagnostic('bounded-search-sample', marker, context, {
+                attempt: attempt + 1,
+                candidateTop: Math.round(boundedTop),
+                actualTop: Math.round(sample.scrollTop),
+                scrollHeight: Math.round(sample.scrollHeight),
+                stable: sample.stable,
+                coordinateSystemChanged,
+                mountedMin: sample.range?.min || 0,
+                mountedMax: sample.range?.max || 0
+            });
+            if (!sample.stable) {
+                // React is still compensating scroll position/height. Do not
+                // narrow a bracket with a range from that transient frame.
+                maxScrollTop = sample.maxScrollTop;
+                lowerTop = 0;
+                upperTop = maxScrollTop;
+                if (lastDirection < 0) {
+                    upperTop = Math.max(0, sample.scrollTop - 1);
+                    nextTop = upperTop / 2;
+                } else if (lastDirection > 0) {
+                    lowerTop = Math.min(maxScrollTop, sample.scrollTop + 1);
+                    nextTop = lowerTop + (maxScrollTop - lowerTop) / 2;
+                } else {
+                    nextTop = ((userOrder - 1) / (totalUsers - 1)) * maxScrollTop;
+                }
+                continue;
+            }
+            const range = sample.range;
             if (!range) break;
+            if (coordinateSystemChanged) {
+                maxScrollTop = sample.maxScrollTop;
+                lowerTop = 0;
+                upperTop = maxScrollTop;
+            }
+            const actualTop = Math.max(0, Math.min(sample.maxScrollTop, sample.scrollTop));
             if (userOrder < range.min) {
-                upperTop = Math.min(upperTop, boundedTop - 1);
+                lastDirection = -1;
+                upperTop = Math.min(upperTop, Math.max(0, actualTop - 1));
             } else if (userOrder > range.max) {
-                lowerTop = Math.max(lowerTop, boundedTop + 1);
+                lastDirection = 1;
+                lowerTop = Math.max(lowerTop, Math.min(sample.maxScrollTop, actualTop + 1));
             } else {
+                lastDirection = 0;
                 const left = [...range.anchors].reverse().find(anchor => anchor.order < userOrder);
                 const right = range.anchors.find(anchor => anchor.order > userOrder);
                 if (!left || !right || right.order === left.order) break;
@@ -893,9 +1521,14 @@ class ChatGPTAdapter extends SiteAdapter {
             nextTop = Number.isFinite(projected) && projected > lowerTop + 4 && projected < upperTop - 4
                 ? projected : midpoint;
         }
-        if (isCurrent()) scrollContainer.scrollTop = Math.max(0, Math.min(maxScrollTop, originalTop));
+        let positionRestored = false;
+        if (isCurrent() && options.restoreOnFailure !== false) {
+            positionRestored = await this._restoreReadingAnchor(restoreAnchor, scrollContainer, isCurrent);
+        }
+        paginationTracker.dispose();
         this._navigationDiagnostic('target-identity-failed', marker, context, {
-            strategy: 'bounded-evidence-search', reason: 'bounded-search-exhausted', attempts
+            strategy: 'bounded-evidence-search', reason: 'bounded-search-exhausted', attempts,
+            positionRestored
         });
         return null;
     }
@@ -920,6 +1553,11 @@ class ChatGPTAdapter extends SiteAdapter {
         this._capturedTurns.forEach(turn => {
             [turn.id, turn.nodeId, turn.messageId, ...(turn.ids || [])].filter(Boolean)
                 .forEach(id => turnByAlias.set(id, turn));
+        });
+        this._domOnlyTurns.forEach((turn, index) => {
+            const indexedTurn = { ...turn, userOrder: index + 1 };
+            [turn.id, ...(turn.aliases || [])].filter(Boolean)
+                .forEach(id => turnByAlias.set(id, indexedTurn));
         });
         const anchors = [];
         const roots = [
@@ -986,6 +1624,23 @@ class ChatGPTAdapter extends SiteAdapter {
         };
     }
 
+    _getKnownUserTurnRecords() {
+        const turns = this._capturedTurns.length ? this._capturedTurns : this._domOnlyTurns;
+        return turns.slice(0, 500).map((turn, index) => ({
+            userOrder: Number(turn.userOrder) || index + 1,
+            ids: Array.from(new Set([
+                turn.id, turn.nodeId, turn.messageId,
+                ...(turn.ids || []), ...(turn.aliases || [])
+            ].filter(Boolean))).slice(0, 8)
+        }));
+    }
+
+    _queryNativeKeyState(marker, context = {}, timeoutMs = 450) {
+        const plan = this._buildVirtualIndexPlan(marker);
+        if (!plan) return Promise.resolve(null);
+        return this._requestVirtualizerJump({ ...plan, queryOnly: true }, marker, context, timeoutMs);
+    }
+
     _navigationDiagnostic(stage, marker, context = {}, data = {}) {
         window.AITGPTDiagnostics?.log('timeline.navigation', {
             stage,
@@ -1007,16 +1662,34 @@ class ChatGPTAdapter extends SiteAdapter {
         const requestId = `ait-timeline-${Date.now()}-${Math.random().toString(36).slice(2)}`;
         this._activeVirtualizerRequestId = requestId;
         const issuedAt = Date.now();
-        this._navigationDiagnostic('virtualizer-discovery-start', marker, context, { strategy: plan.strategy });
-        this._navigationDiagnostic('bridge-command-issued', marker, context, { strategy: plan.strategy });
+        const commandState = {
+            commandIssued: false,
+            nativeCommandIssued: false,
+            method: '',
+            indexStrategy: '',
+            targetKeyLoaded: false,
+            nativeKeyCount: 0
+        };
+        const queryOnly = plan.queryOnly === true;
+        this._navigationDiagnostic('virtualizer-discovery-start', marker, context, {
+            strategy: plan.strategy, queryOnly
+        });
+        if (!queryOnly) {
+            this._navigationDiagnostic('bridge-command-issued', marker, context, { strategy: plan.strategy });
+        }
         const resultPromise = new Promise(resolve => {
             const timeout = setTimeout(() => {
                 document.removeEventListener('ait-gpt-virtualizer-jump-result', handler);
+                document.removeEventListener('ait-gpt-virtualizer-jump-progress', progressHandler);
                 document.dispatchEvent(new CustomEvent('ait-gpt-virtualizer-jump-cancel', {
                     detail: JSON.stringify({ requestId })
                 }));
                 if (this._activeVirtualizerRequestId === requestId) this._activeVirtualizerRequestId = null;
-                const result = { ok: false, reason: 'bridge-timeout', failureStage: 'bridge', bridgeMs: Date.now() - issuedAt };
+                const result = {
+                    ok: false, reason: 'bridge-timeout', failureStage: 'bridge',
+                    bridgeMs: Date.now() - issuedAt,
+                    ...commandState
+                };
                 this._navigationDiagnostic('virtualizer-discovery-end', marker, context, {
                     found: false, elapsedMs: result.bridgeMs, reason: result.reason
                 });
@@ -1032,7 +1705,13 @@ class ChatGPTAdapter extends SiteAdapter {
                 if (result?.requestId !== requestId) return;
                 clearTimeout(timeout);
                 document.removeEventListener('ait-gpt-virtualizer-jump-result', handler);
+                document.removeEventListener('ait-gpt-virtualizer-jump-progress', progressHandler);
                 if (this._activeVirtualizerRequestId === requestId) this._activeVirtualizerRequestId = null;
+                result.commandIssued = result.commandIssued === true || commandState.commandIssued;
+                result.nativeCommandIssued = result.nativeCommandIssued === true || commandState.nativeCommandIssued;
+                result.indexStrategy = result.indexStrategy || commandState.indexStrategy;
+                result.targetKeyLoaded = result.targetKeyLoaded === true || commandState.targetKeyLoaded;
+                result.nativeKeyCount = Math.max(Number(result.nativeKeyCount) || 0, commandState.nativeKeyCount);
                 this._navigationDiagnostic('virtualizer-discovery-end', marker, context, {
                     found: result?.failureStage !== 'discovery',
                     elapsedMs: Math.round(result?.discoveryMs || 0),
@@ -1051,11 +1730,35 @@ class ChatGPTAdapter extends SiteAdapter {
                     strategy: result?.indexStrategy || plan.strategy,
                     discoveryMs: Math.round(result?.discoveryMs || 0),
                     bridgeMs: Math.round(result?.bridgeMs || (Date.now() - issuedAt)),
-                    stateChanged: !!result?.stateChanged
+                    stateChanged: !!result?.stateChanged,
+                    nativeKeyCount: Number(result?.nativeKeyCount) || 0,
+                    targetKeyLoaded: result?.targetKeyLoaded === true
                 });
                 resolve(result);
             };
+            const progressHandler = event => {
+                let progress = null;
+                try { progress = JSON.parse(typeof event.detail === 'string' ? event.detail : '{}'); } catch {}
+                if (progress?.requestId !== requestId || progress?.phase !== 'command-issued') return;
+                commandState.commandIssued = true;
+                commandState.nativeCommandIssued = commandState.nativeCommandIssued
+                    || progress.nativeCommandIssued === true;
+                commandState.method = progress.method || commandState.method;
+                commandState.indexStrategy = progress.indexStrategy || commandState.indexStrategy;
+                commandState.targetKeyLoaded = commandState.targetKeyLoaded
+                    || progress.targetKeyLoaded === true;
+                commandState.nativeKeyCount = Math.max(
+                    commandState.nativeKeyCount,
+                    Number(progress.nativeKeyCount) || 0
+                );
+                this._navigationDiagnostic('bridge-command-invoked', marker, context, {
+                    method: commandState.method,
+                    nativeCommandIssued: commandState.nativeCommandIssued,
+                    strategy: commandState.indexStrategy
+                });
+            };
             document.addEventListener('ait-gpt-virtualizer-jump-result', handler);
+            document.addEventListener('ait-gpt-virtualizer-jump-progress', progressHandler);
         });
         document.dispatchEvent(new CustomEvent('ait-gpt-virtualizer-jump', {
             detail: JSON.stringify({
@@ -1065,8 +1768,11 @@ class ChatGPTAdapter extends SiteAdapter {
                 mappingVerified: plan.mappingVerified === true,
                 observedIndices: Array.from(new Set(plan.observedIndices || [])).slice(0, 20),
                 targetIds: Array.from(new Set(plan.targetIds || [])).slice(0, 8),
+                knownUserTurns: this._getKnownUserTurnRecords(),
+                queryOnly,
+                requireSettledNativeKey: plan.requireSettledNativeKey === true,
                 targetUserOrder: marker?.userOrder || 0,
-                totalUserTurns: this._capturedTurns.length,
+                totalUserTurns: this._capturedTurns.length || this._domOnlyTurns.length,
                 taskId: context.taskId || 0,
                 deadlineMs: Math.max(250, timeoutMs - 100)
             })
@@ -1118,12 +1824,16 @@ class ChatGPTAdapter extends SiteAdapter {
         const isCurrent = typeof context.isCurrent === 'function' ? context.isCurrent : () => true;
         if (!isCurrent()) return null;
         const navigationStartTop = context.scrollContainer?.scrollTop || 0;
+        const navigationStartAnchor = this._captureReadingAnchor(context.scrollContainer);
         this._navigationDiagnostic('marker-resolved', marker, context, {
             identityAvailable: this._getMarkerAliasIds(marker).length > 0
         });
         const direct = this.resolveTimelineElement(marker);
         this._navigationDiagnostic(direct ? 'direct-dom-hit' : 'direct-dom-miss', marker, context);
         if (direct) return direct;
+
+        // 保留已验证版本的顺序：先使用身份占位或可靠缓存位置，再把
+        // React 原生 Key 当作加速手段，最后才进入真实 Q 范围有界搜索。
         const knownPositionElement = await this._tryKnownTimelinePosition(marker, context);
         if (!isCurrent()) return null;
         if (knownPositionElement) {
@@ -1132,6 +1842,7 @@ class ChatGPTAdapter extends SiteAdapter {
             });
             return knownPositionElement;
         }
+
         const plan = this._buildVirtualIndexPlan(marker);
         if (!plan) {
             this._navigationDiagnostic('virtual-index-plan', marker, context, { ok: false, reason: 'identity-unavailable' });
@@ -1144,13 +1855,58 @@ class ChatGPTAdapter extends SiteAdapter {
         if (!isCurrent()) return null;
         const result = await this._requestVirtualizerJump(plan, marker, context);
         if (!isCurrent()) return null;
+        const nativeKeyAttempted = result?.nativeCommandIssued === true
+            || result?.indexStrategy === 'native-turn-key'
+            || result?.targetKeyLoaded === true;
         if (!result?.ok) {
-            this._navigationDiagnostic(result?.reason === 'cancelled' ? 'navigation-cancelled' : 'scroll-state-unchanged', marker, context, {
+            if (result?.reason === 'target-key-not-loaded') {
+                this._navigationDiagnostic('native-list-capability', marker, context, {
+                    available: false, reason: 'target-key-not-loaded',
+                    nativeKeyCount: Number(result?.nativeKeyCount) || 0
+                });
+            }
+            const feedbackStage = result?.reason === 'cancelled' ? 'navigation-cancelled'
+                : result?.stateChanged ? 'scroll-state-changed' : 'scroll-state-unchanged';
+            this._navigationDiagnostic(feedbackStage, marker, context, {
                 strategy: result?.indexStrategy || plan.strategy,
                 reason: result?.reason || 'bridge-no-response', failureStage: result?.failureStage || 'bridge'
             });
             if (result?.reason === 'cancelled') return null;
-            const fallbackElement = await this._fallbackScrollByUserOrder(marker, context, navigationStartTop);
+            if (result?.reason === 'target-key-not-loaded') {
+                let nativeState = result;
+                if (!this._nativeLoadedOrders(nativeState).length) {
+                    nativeState = await this._queryNativeKeyState(marker, context, 500) || nativeState;
+                }
+                if (!isCurrent()) return null;
+                const loadedOrders = this._nativeLoadedOrders(nativeState);
+                const targetOrder = Number(marker?.userOrder);
+                if (loadedOrders.length && targetOrder > 0 && targetOrder < loadedOrders[0]) {
+                    return this._jumpToUnloadedHistory(
+                        marker, context, nativeState, navigationStartAnchor
+                    );
+                }
+                // The target is absent from the native list, but its relation to
+                // the loaded stable-ID range is not proven. A full-history ratio
+                // is invalid for this partial scroll space, so stop without it.
+                return null;
+            }
+            // 原生方法已经实际调用且 Promise 仍可能迟到时不叠加滚动。
+            // 其余已结束/未调用的失败仍可回到原有真实挂载范围校正。
+            const nativeStillPending = result?.nativeCommandIssued === true
+                && (result?.reason === 'command-promise-pending'
+                    || result?.reason === 'bridge-timeout');
+            if (nativeStillPending) {
+                this._navigationDiagnostic('native-key-passive-settle', marker, context, {
+                    ok: false, reason: result?.reason || 'target-not-observed'
+                });
+                return null;
+            }
+            const fallbackElement = await this._fallbackScrollByUserOrder(
+                marker, context, navigationStartTop, {
+                    restoreAnchor: navigationStartAnchor,
+                    nativeKeyState: result
+                }
+            );
             if (fallbackElement) {
                 this._navigationDiagnostic('target-identity-verified', marker, context, {
                     strategy: 'bounded-scroll-fallback'
@@ -1161,14 +1917,28 @@ class ChatGPTAdapter extends SiteAdapter {
         this._navigationDiagnostic(result.stateChanged ? 'scroll-state-changed' : 'scroll-state-unchanged', marker, context, {
             strategy: result.indexStrategy || plan.strategy, reason: result.targetIndexVisible ? 'target-index-visible' : ''
         });
-        const firstWait = await this._waitForMarkerMount(marker, context, result.stateChanged ? 900 : 650);
+        const firstWait = await this._waitForMarkerMount(
+            marker,
+            context,
+            nativeKeyAttempted ? 1200 : (result.stateChanged ? 900 : 650)
+        );
         if (!isCurrent()) return null;
         this._navigationDiagnostic(firstWait.element ? 'target-mount-detected' : 'target-mount-timeout', marker, context, {
             strategy: result.indexStrategy || plan.strategy, mountMs: firstWait.mountMs, mutations: firstWait.mutations
         });
         if (firstWait.element) {
+            marker._aitNavigationStrategy = result.indexStrategy || plan.strategy;
             this._navigationDiagnostic('target-identity-verified', marker, context, { mountMs: firstWait.mountMs });
             return firstWait.element;
+        }
+
+        const nativeStillPending = result?.nativeCommandIssued === true
+            && result?.reason === 'command-promise-pending';
+        if (nativeStillPending) {
+            this._navigationDiagnostic('native-key-passive-settle', marker, context, {
+                ok: false, reason: 'content-not-rendered-before-deadline'
+            });
+            return null;
         }
 
         // One progress-gated local correction is allowed after a coarse jump.
@@ -1197,7 +1967,27 @@ class ChatGPTAdapter extends SiteAdapter {
         this._navigationDiagnostic('target-mount-timeout', marker, context, {
             strategy: result.indexStrategy || plan.strategy, reason: 'bridge-target-not-mounted'
         });
-        return this._fallbackScrollByUserOrder(marker, context, navigationStartTop);
+        return this._fallbackScrollByUserOrder(
+            marker, context, navigationStartTop, {
+                restoreAnchor: navigationStartAnchor,
+                nativeKeyState: result
+            }
+        );
+    }
+
+    async recoverDisplacedTimelineMarker(marker, context = {}) {
+        const direct = this.resolveTimelineElement(marker);
+        if (direct) return direct;
+        if (Number(context.navigationDeadline) > 0
+            && Date.now() >= Number(context.navigationDeadline)) return null;
+        // Reuse the original evidence-bounded correction with the navigation's
+        // remaining writes/time. The first candidate is projected from the
+        // latest mounted Q anchors when available; it is not a one-shot ratio.
+        return this._fallbackScrollByUserOrder(marker, context, null, {
+            navigationDeadline: context.navigationDeadline,
+            searchBudget: context.searchBudget,
+            restoreOnFailure: false
+        });
     }
 
     /**
@@ -1384,8 +2174,18 @@ class ChatGPTAdapter extends SiteAdapter {
     }
 
     getTimelineMessageRect(element) {
-        if (!element?.hasAttribute('data-ait-heading-turn')) return null;
-        return window.AITChatGPTRolloutDOM?.rect(element) || null;
+        if (!element) return null;
+        if (element.hasAttribute('data-ait-heading-turn')) {
+            const headingRect = window.AITChatGPTRolloutDOM?.rect(element) || null;
+            if (headingRect && (headingRect.height > 0 || headingRect.bottom > headingRect.top)) return headingRect;
+        }
+        // 新版 turn 外壳可能覆盖整行或承担虚拟占位；激活和精准对齐必须
+        // 使用用户正文的真实矩形，不能把外层 turn 顶部当作提问顶部。
+        const content = this._findRenderedUserContent(element);
+        const contentRect = content?.getBoundingClientRect?.();
+        if (contentRect && contentRect.width > 0
+            && (contentRect.height > 0 || contentRect.bottom > contentRect.top)) return contentRect;
+        return null;
     }
 
     getTimeLabelTarget(element) {
@@ -1427,7 +2227,25 @@ class ChatGPTAdapter extends SiteAdapter {
             }
         }
         
-        return false;
+        // Temporary Chat remains on a non-durable ChatGPT route (normally `/`).
+        // Only treat it as a conversation after a real turn anchor exists, so
+        // the empty home page is never initialized as a timeline.
+        const transientPath = segs.length === 0
+            || (segs.length === 2 && segs[0] === 'g');
+        return transientPath && !!this.getInitializationAnchor();
+    }
+
+    isTransientConversation() {
+        return !this.extractConversationId(location.pathname)
+            && !!this.getInitializationAnchor();
+    }
+
+    clearTransientTimelineData() {
+        if (this._capturedSource !== 'temporary-dom') return;
+        this._domOnlyTurns = [];
+        this._turnTextCache.clear();
+        this._scrollPositionByMessageId.clear();
+        this._virtualIndexByMessageId.clear();
     }
 
     extractConversationId(pathname) {
@@ -1464,6 +2282,10 @@ class ChatGPTAdapter extends SiteAdapter {
     }
 
     findConversationContainer(firstMessage, context = {}) {
+        const transcript = firstMessage?.closest?.(
+            '[data-thread-find-target="conversation"], [data-chatgpt-conversation-selection-target]'
+        );
+        if (transcript) return transcript;
         /**
          * 查找对话容器
          * 
@@ -1480,15 +2302,30 @@ class ChatGPTAdapter extends SiteAdapter {
         if (stableVirtualRoot) return stableVirtualRoot;
         const threadRoot = firstMessage?.closest?.('#thread') || document.getElementById('thread');
         if (threadRoot) return threadRoot;
-        const main = firstMessage?.closest?.('main') || document.querySelector('main');
-        if (main) return main;
-        return ContainerFinder.findConversationContainer(firstMessage, {
+        if (typeof ContainerFinder === 'undefined') return null;
+        const inferred = ContainerFinder.findConversationContainer(firstMessage, {
             messageSelector: context.messageSelector || this.getUserMessageSelector(),
             messages: context.userTurnElements
         });
+        // Never use the whole <main> as an injection scope. It also owns the
+        // app header/composer in the new two-sidebar layout.
+        return inferred?.matches?.('main, body, html') ? null : inferred;
+    }
+
+    shouldManageScrollPadding() {
+        // ChatGPT owns a dynamic virtual spacer. Adding another child changes
+        // its estimated scrollHeight and can displace a verified navigation.
+        return false;
     }
 
     resolveTimelineScrollContainer(anchor, conversationContainer) {
+        const nativeThreadScroll = anchor?.closest?.('.thread-scroll-container')
+            || conversationContainer?.closest?.('.thread-scroll-container')
+            || Array.from(document.querySelectorAll?.('.thread-scroll-container') || [])
+                .find(element => element.isConnected
+                    && (!conversationContainer || element.contains?.(conversationContainer)));
+        if (nativeThreadScroll) return nativeThreadScroll;
+
         // Start above the turn itself so an attachment/code scroller inside a
         // message can never become the main conversation scroll root.
         let node = anchor && anchor !== conversationContainer

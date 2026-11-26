@@ -19,6 +19,8 @@ const assert = require('node:assert/strict');
         return { top, bottom:top+30, left:10, right:110, width:100, height:30 };
     };
     w.eval(fs.readFileSync(path.resolve(__dirname, '../../js/global/chatgpt-diagnostics/index.js'), 'utf8'));
+    assert.equal(reads.length, 0, 'normal mode must not start diagnostic feature snapshots');
+    w.AITGPTDiagnostics.setVerbose(true);
     await new Promise(resolve => setImmediate(resolve));
     w.AITGPTDiagnostics.featureSnapshot('test');
     const report = w.AITGPTDiagnostics.export();

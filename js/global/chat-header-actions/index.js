@@ -31,7 +31,19 @@
 
     function getInsertTarget() {
         const shareButton = document.querySelector('[data-testid="share-chat-button"]');
-        if (!shareButton) return window.AITChatGPTEntryRollout?.header() || null;
+        if (!shareButton) {
+            // 新版一级导航布局下，不再把任意 header 当作可写容器；那会把
+            // 原生标题挤进或覆盖主内容区。只接受原生右侧操作组中的按钮。
+            if (!/\/c\/[^/]+/.test(location.pathname)) return null;
+            return Array.from(document.querySelectorAll(
+                'header [data-app-shell-header-obstacle] .gap-toolbar-action > button'
+            )).find(button => {
+                const rect = button.getBoundingClientRect();
+                const style = getComputedStyle(button);
+                return button.isConnected && rect.width > 0 && rect.height > 0
+                    && style.display !== 'none' && style.visibility !== 'hidden';
+            }) || null;
+        }
 
         let actionBar = shareButton.parentElement;
         for (let depth = 0; actionBar && depth < 6; depth++) {
@@ -49,11 +61,9 @@
         return shareButton;
     }
 
-    function ensureContainer() {
-        const target = getInsertTarget();
+    function ensureContainer(nativeTarget) {
+        const target = nativeTarget || getInsertTarget();
         if (!target?.parentNode) return null;
-        const directHeader = target.matches('header, [role="banner"]');
-        const parent = directHeader ? target : target.parentNode;
 
         let container = document.querySelector(`.${CONTAINER_CLASS}`);
         if (!container) {
@@ -64,25 +74,26 @@
                 align-items: center;
                 flex: 0 0 auto;
                 gap: 0;
-                ${directHeader ? 'margin-left: auto;' : ''}
             `;
         }
+        if (nativeTarget) {
+            container.style.alignSelf = 'center';
+            container.style.gap = '4px';
+        }
 
-        container.style.marginLeft = directHeader ? 'auto' : '';
-        if (container.parentNode !== parent || (!directHeader && container.nextSibling !== target) ||
-            (directHeader && container !== parent.lastElementChild)) {
-            parent.insertBefore(container, directHeader ? null : target);
+        if (container.parentNode !== target.parentNode || container.nextSibling !== target) {
+            target.parentNode.insertBefore(container, target);
         }
 
         window.AITGPTDiagnostics?.log('entry.header-container', { mounted: container.isConnected,
-            directHeader, actions: container.childElementCount });
+            nativeAnchor: target.tagName?.toLowerCase() || '', actions: container.childElementCount });
         return container;
     }
 
-    function mount(button, actionId) {
+    function mount(button, actionId, nativeTarget) {
         if (!button) return false;
 
-        const container = ensureContainer();
+        const container = ensureContainer(nativeTarget);
         if (!container) return false;
 
         button.dataset.aitHeaderAction = actionId;
@@ -90,8 +101,10 @@
         const nextButton = Array.from(container.children).find(child => {
             const childOrder = ACTION_ORDER[child.dataset.aitHeaderAction] ?? Number.MAX_SAFE_INTEGER;
             return childOrder > order;
-        });
-        container.insertBefore(button, nextButton || null);
+        }) || null;
+        if (button.parentNode !== container || button.nextElementSibling !== nextButton) {
+            container.insertBefore(button, nextButton);
+        }
         return true;
     }
 

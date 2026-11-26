@@ -40,6 +40,7 @@
   const conversationSnapshots = new Map(); // convId → ordered snapshot + completeness metadata
   const latestAppliedRequestByConversation = new Map(); // convId → 已成功应用的请求序号
   let nextRequestSequence = 0;
+  let nativeHistoryRequestSequence = 0;
   let unmatchedJsonProbes = 0;
   let diagnosticRequestSequence = 0;
   const probedEndpointCounts = new Map();
@@ -330,16 +331,29 @@
   const CONV_URL_RE = /^\/backend-api\/conversation\/([0-9a-f][0-9a-f-]{18,})$/i;
   const origFetch = window.fetch;
   const fullConversationRequests = new Map();
+  const fullConversationFailures = new Map();
   const liveRefreshGeneration = new Map();
   let accessTokenPromise = null;
+  const OWN_FETCH_TIMEOUT_MS = 10000;
+  const TOKEN_FETCH_TIMEOUT_MS = 5000;
+  const FULL_FETCH_FAILURE_BACKOFF_MS = 5000;
 
   const getAccessToken = () => {
     if (accessTokenPromise) return accessTokenPromise;
-    accessTokenPromise = origFetch.call(window, new URL('/api/auth/session', location.origin).href, {
-      method: 'GET', credentials: 'include', cache: 'no-store', headers: { Accept: 'application/json' }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TOKEN_FETCH_TIMEOUT_MS);
+    const request = origFetch.call(window, new URL('/api/auth/session', location.origin).href, {
+      method: 'GET', credentials: 'include', cache: 'no-store',
+      headers: { Accept: 'application/json' }, signal: controller.signal
     }).then(response => response.ok ? response.json() : null)
       .then(session => session?.accessToken || session?.access_token || '')
-      .catch(() => '');
+      .catch(() => '')
+      .finally(() => clearTimeout(timer));
+    const sharedRequest = request.then(token => {
+      if (!token && accessTokenPromise === sharedRequest) accessTokenPromise = null;
+      return token;
+    });
+    accessTokenPromise = sharedRequest;
     return accessTokenPromise;
   };
 
@@ -356,12 +370,43 @@
     return merged;
   };
 
-  const fetchOwnJson = async (url, headers) => {
-    const response = await origFetch.call(window, url, {
-      method: 'GET', credentials: 'include', cache: 'no-store', headers
-    });
-    if (!response?.ok) throw new Error(`http-${response?.status || 0}`);
-    return response.json();
+  const fetchOwnJson = async (url, headers, parentSignal) => {
+    const controller = new AbortController();
+    const abortFromParent = () => controller.abort();
+    if (parentSignal?.aborted) controller.abort();
+    else parentSignal?.addEventListener('abort', abortFromParent, { once: true });
+    const timer = setTimeout(() => controller.abort(), OWN_FETCH_TIMEOUT_MS);
+    try {
+      let response;
+      try {
+        response = await origFetch.call(window, url, {
+          method: 'GET', credentials: 'include', cache: 'no-store', headers,
+          signal: controller.signal
+        });
+      } catch (error) {
+        if (error?.name === 'AbortError' && !parentSignal?.aborted) {
+          const timeoutError = new Error('request-timeout');
+          timeoutError.name = 'TimeoutError';
+          throw timeoutError;
+        }
+        throw error;
+      }
+      if (!response?.ok) throw new Error(`http-${response?.status || 0}`);
+      return await response.json();
+    } finally {
+      clearTimeout(timer);
+      parentSignal?.removeEventListener('abort', abortFromParent);
+    }
+  };
+
+  const assertCurrentConversation = conversationId => {
+    const parts = location.pathname.split('/');
+    const index = parts.indexOf('c');
+    if (index < 0 || parts[index + 1] !== conversationId) {
+      const error = new Error('conversation-changed');
+      error.name = 'AbortError';
+      throw error;
+    }
   };
 
   const notifySnapshotUpdated = conversationId => {
@@ -501,17 +546,24 @@
     const existingSnapshot = conversationSnapshots.get(conversationId);
     if (existingSnapshot?.complete && !options.force) return Promise.resolve(true);
     const existingRequest = fullConversationRequests.get(conversationId);
-    if (!options.force && existingRequest && Date.now() - existingRequest.startedAt < 30000) return existingRequest.promise;
+    if (existingRequest) return existingRequest.promise;
+    const lastFailure = fullConversationFailures.get(conversationId) || 0;
+    if (Date.now() - lastFailure < FULL_FETCH_FAILURE_BACKOFF_MS) return Promise.resolve(false);
+    const controller = new AbortController();
+    let failed = false;
     const promise = (async () => {
       let legacyPartial = null;
       try {
+        assertCurrentConversation(conversationId);
         const token = await getAccessToken();
+        assertCurrentConversation(conversationId);
+        if (controller.signal.aborted) throw Object.assign(new Error('cancelled'), { name: 'AbortError' });
         const headers = { Accept: 'application/json' };
         if (token) headers.Authorization = `Bearer ${token}`;
         try {
           const legacyUrl = new URL(`/backend-api/conversation/${encodeURIComponent(conversationId)}`, location.origin);
           legacyUrl.searchParams.set('include_full_conversation', 'true');
-          const legacy = await fetchOwnJson(legacyUrl.href, headers);
+          const legacy = await fetchOwnJson(legacyUrl.href, headers, controller.signal);
           if (isCompleteMapping(legacy)) {
             const requestSequence = ++nextRequestSequence;
             if (capture(conversationId, legacy, false, { complete: true, source: 'complete-api', pageCount: 1 })) {
@@ -528,7 +580,8 @@
         const firstUrl = new URL(`/backend-api/conversations/${encodeURIComponent(conversationId)}`, location.origin);
         firstUrl.searchParams.set('include_has_versions', 'true');
         firstUrl.searchParams.set('num_turns', '100');
-        const firstPage = await fetchOwnJson(firstUrl.href, headers);
+        const firstPage = await fetchOwnJson(firstUrl.href, headers, controller.signal);
+        assertCurrentConversation(conversationId);
         if (!Array.isArray(firstPage?.messages)) throw new Error('paginated-messages-missing');
         let messages = mergeMessages([], firstPage.messages);
         let rawMessages = firstPage.messages.length;
@@ -537,13 +590,14 @@
         let pageCount = 1;
         const seenCursors = new Set();
         while (cursor) {
+          assertCurrentConversation(conversationId);
           if (seenCursors.has(cursor) || pageCount >= 500) throw new Error('pagination-stalled');
           seenCursors.add(cursor);
           const pageUrl = new URL(`/backend-api/conversations/${encodeURIComponent(conversationId)}/messages`, location.origin);
           pageUrl.searchParams.set('before', cursor);
           pageUrl.searchParams.set('include_has_versions', 'true');
           pageUrl.searchParams.set('num_turns', '100');
-          const page = await fetchOwnJson(pageUrl.href, headers);
+          const page = await fetchOwnJson(pageUrl.href, headers, controller.signal);
           if (!Array.isArray(page?.messages)) throw new Error('paginated-page-missing');
           rawMessages += page.messages.length;
           messages = mergeMessages(page.messages, messages);
@@ -564,6 +618,7 @@
           return true;
         }
       } catch (error) {
+        failed = error?.name !== 'AbortError';
         diag?.log('api.full-conversation-failed', {
           conversationId, reason: error?.name === 'AbortError' ? 'aborted' : 'unavailable',
           retainedComplete: conversationSnapshots.get(conversationId)?.complete === true
@@ -573,10 +628,30 @@
         }
       }
       return false;
-    })();
-    fullConversationRequests.set(conversationId, { promise, startedAt: Date.now() });
+    })().finally(() => {
+      const current = fullConversationRequests.get(conversationId);
+      if (current?.promise === promise) {
+        fullConversationRequests.delete(conversationId);
+        if (failed) fullConversationFailures.set(conversationId, Date.now());
+        else fullConversationFailures.delete(conversationId);
+      }
+    });
+    fullConversationRequests.set(conversationId, { promise, controller, startedAt: Date.now() });
     return promise;
   };
+
+  const cancelInactiveFullConversationRequests = () => {
+    const parts = location.pathname.split('/');
+    const index = parts.indexOf('c');
+    const activeConversationId = index >= 0 ? parts[index + 1] : '';
+    for (const [conversationId, request] of fullConversationRequests) {
+      if (conversationId === activeConversationId) continue;
+      request.controller?.abort();
+      fullConversationRequests.delete(conversationId);
+      liveRefreshGeneration.set(conversationId, (liveRefreshGeneration.get(conversationId) || 0) + 1);
+    }
+  };
+  window.addEventListener?.('url:change', cancelInactiveFullConversationRequests);
 
   window.fetch = function (...args) {
     const p = origFetch.apply(this, args);
@@ -588,6 +663,42 @@
       const legacyMatch = sameOrigin && requestUrl.pathname.match(CONV_URL_RE);
       const rolloutMatch = sameOrigin && window.AITChatGPTRolloutAPI?.match(requestUrl.pathname);
       const match = legacyMatch || rolloutMatch;
+      const nativeHistoryMatch = sameOrigin && method === 'GET'
+        ? requestUrl.pathname.match(/^\/backend-api\/conversations\/([^/]+)\/messages\/?$/)
+        : null;
+      const isNativeHistoryPage = !!nativeHistoryMatch
+        && requestUrl.searchParams.has('before');
+      if (isNativeHistoryPage) {
+        const paginationStartedAt = performance.now();
+        const paginationRequestId = ++nativeHistoryRequestSequence;
+        let paginationConversationId = nativeHistoryMatch[1];
+        try { paginationConversationId = decodeURIComponent(paginationConversationId); } catch {}
+        const notifyPagination = detail => document.dispatchEvent(new CustomEvent(
+          'ait-gpt-native-history-pagination',
+          { detail: JSON.stringify({
+            requestId: paginationRequestId,
+            conversationId: paginationConversationId,
+            ...detail
+          }) }
+        ));
+        diag?.log('api.native-history-pagination', { stage: 'request', hasBeforeCursor: true });
+        notifyPagination({ stage: 'request' });
+        p.then(response => {
+          const detail = {
+            stage: 'response', ok: !!response?.ok, status: response?.status || 0,
+            elapsedMs: Math.round(performance.now() - paginationStartedAt)
+          };
+          diag?.log('api.native-history-pagination', detail);
+          notifyPagination(detail);
+        }).catch(() => {
+          const detail = {
+            stage: 'response', ok: false,
+            elapsedMs: Math.round(performance.now() - paginationStartedAt)
+          };
+          diag?.log('api.native-history-pagination', detail);
+          notifyPagination(detail);
+        });
+      }
       // Current ChatGPT sends through /backend-api/{namespace}/conversation;
       // /conversation/prepare is a separate preflight and has no user turn.
       const isConversationSend = sameOrigin && method === 'POST'
@@ -723,8 +834,9 @@
   };
 
   const installedFetch = window.fetch;
-  for (const delay of [5000, 15000, 30000, 60000]) {
-    setTimeout(() => {
+  let apiHealthTimers = [];
+  const runApiHealth = () => {
+      if (!diag?.verbose) return;
       try {
         const path = location.pathname.split('/');
         const index = path.indexOf('c');
@@ -735,8 +847,18 @@
           currentConversationCached: !!snapshot, currentTextEntries: snapshot?.texts?.size || 0,
           domUniqueIds: ids.size, matchingCachedIds: Array.from(ids).filter(id => snapshot?.texts?.has(id)).length });
       } catch (error) { diag?.error('api.health', error); }
-    }, delay);
-  }
+  };
+  const setApiHealthEnabled = enabled => {
+    apiHealthTimers.forEach(clearTimeout);
+    apiHealthTimers = [];
+    if (!enabled) return;
+    apiHealthTimers = [0, 5000, 15000, 30000, 60000]
+      .map(delay => setTimeout(runApiHealth, delay));
+  };
+  document.addEventListener('ait-gpt-diag-verbose', event => {
+    setApiHealthEnabled(event.detail === '1');
+  });
+  if (diag?.verbose) setApiHealthEnabled(true);
 
   // ---- 事件视图：用户提问文本（时间轴）----
   document.addEventListener('ait-gpt-user-texts-pull', (event) => {

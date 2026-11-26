@@ -380,8 +380,8 @@ class ScrollToBottomManager {
      */
     _scrollToBottom() {
         // 优先使用时间轴的对外 API（正确处理虚拟滚动）
-        if (window.timelineManager?.scrollToLast) {
-            const success = window.timelineManager.scrollToLast();
+        if (window.timelineManager?.scrollToConversationBottom) {
+            const success = window.timelineManager.scrollToConversationBottom();
             if (success) return;
         }
         

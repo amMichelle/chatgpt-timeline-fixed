@@ -20,6 +20,16 @@
     let initInFlight = false;
     let bootstrapInFlight = false;
     let settingsListenerAttached = false;
+    let stopWaiting = null;
+    let enabled = false;
+    let retryGeneration = 0;
+    const retryTimers = new Set();
+
+    function clearRetries() {
+        retryGeneration++;
+        retryTimers.forEach(timer => clearTimeout(timer));
+        retryTimers.clear();
+    }
 
     async function resolveSupport() {
         platform = await getCurrentPlatform();
@@ -43,7 +53,7 @@
     // ==================== Init with retry ====================
 
     function canInject() {
-        if (!adapter) return false;
+        if (!enabled || !adapter) return false;
         const info = adapter.findInsertionPoint();
         window.AITGPTDiagnostics?.log('features.sidebar-anchor', { found: !!info, parent: !!info?.parent, offsetParent: !!info?.parent?.offsetParent, positiveHeight: (info?.parent?.offsetHeight || 0) > 0 });
         if (!info) return false;
@@ -58,25 +68,36 @@
     }
 
     async function initialize(retryIndex) {
-        if (manager || initInFlight) return;
+        if (!enabled || manager || initInFlight) return;
         initInFlight = true;
+        let candidate = null;
         try {
             await TimelineI18n.ready();
+            if (!enabled) return;
 
             if (!adapter) {
                 if (!await resolveSupport()) return;
             }
 
-            manager = new SidebarStarredManager(adapter);
-            const ok = await manager.init();
+            candidate = new SidebarStarredManager(adapter);
+            if (!enabled) return;
+            manager = candidate;
+            const ok = await candidate.init();
             window.AITGPTDiagnostics?.log('features.sidebar-init', { initialized: !!ok });
 
+            if (manager !== candidate || !enabled) {
+                candidate.destroy();
+                if (manager === candidate) manager = null;
+                return;
+            }
             if (!ok) {
-                manager.destroy();
+                candidate.destroy();
                 manager = null;
                 if (retryIndex !== undefined) {
                     initWithRetry(retryIndex + 1);
                 }
+            } else {
+                stopWaiting?.();
             }
         } catch (error) {
             window.AITGPTDiagnostics?.error('features.sidebar-init', error);
@@ -91,14 +112,42 @@
             manager.destroy();
             manager = null;
         }
+        adapter?.restoreNativeList?.();
+    }
+
+    function waitForSidebar() {
+        if (!enabled || stopWaiting) return;
+        const tryInitialize = () => {
+            if (enabled && !manager && !initInFlight && canInject()) void initialize().catch(() => {});
+        };
+        const unsubscribe = window.DOMObserverManager?.getInstance().subscribeBody('sidebar-starred-mount', {
+            callback: tryInitialize,
+            filter: { hasAddedNodes: true },
+            debounce: 200
+        }) || (() => {});
+        const timer = setInterval(tryInitialize, SidebarStarredManager.REINJECT_INTERVAL);
+        stopWaiting = () => {
+            unsubscribe();
+            clearInterval(timer);
+            stopWaiting = null;
+        };
     }
 
     function initWithRetry(retryIndex = 0) {
-        if (retryIndex >= RETRY_DELAYS.length) { window.AITGPTDiagnostics?.log('features.sidebar-retry-exhausted'); return; }
+        if (!enabled) return;
+        if (retryIndex >= RETRY_DELAYS.length) {
+            window.AITGPTDiagnostics?.log('features.sidebar-retry-exhausted');
+            waitForSidebar();
+            return;
+        }
 
-        setTimeout(async () => {
+        const generation = retryGeneration;
+        const timer = setTimeout(async () => {
+            retryTimers.delete(timer);
+            if (!enabled || generation !== retryGeneration) return;
             try {
                 if (!await resolveSupport()) return;
+                if (!enabled || generation !== retryGeneration) return;
                 if (canInject()) {
                     await initialize(retryIndex);
                 } else {
@@ -108,6 +157,23 @@
             window.AITGPTDiagnostics?.error('features.sidebar-init', error);
             }
         }, RETRY_DELAYS[retryIndex]);
+        retryTimers.add(timer);
+    }
+
+    function setEnabled(nextEnabled) {
+        enabled = !!nextEnabled;
+        clearRetries();
+        if (!enabled) {
+            stopWaiting?.();
+            destroyManager();
+            return;
+        }
+        if (manager) return;
+        if (canInject()) void initialize(0);
+        else {
+            waitForSidebar();
+            initWithRetry();
+        }
     }
 
     // ==================== 监听开关变化 ====================
@@ -119,16 +185,7 @@
             if (areaName !== 'local' || !changes.sidebarStarredPlatformSettings) return;
             if (!platform) return;
             const settings = changes.sidebarStarredPlatformSettings.newValue || {};
-            const enabled = settings[platform.id] !== false;
-            if (enabled && !manager) {
-                if (canInject()) {
-                    initialize(0);
-                } else {
-                    initWithRetry();
-                }
-            } else if (!enabled && manager) {
-                destroyManager();
-            }
+            setEnabled(settings[platform.id] !== false);
         });
     }
 
@@ -143,13 +200,7 @@
 
             const settings = await StorageAdapter.get('sidebarStarredPlatformSettings');
             window.AITGPTDiagnostics?.log('features.sidebar-gate', { enabled: settings?.[platform.id] !== false });
-            if (settings && settings[platform.id] === false) return;
-
-            if (canInject()) {
-                await initialize(0);
-            } else {
-                initWithRetry();
-            }
+            setEnabled(settings?.[platform.id] !== false);
         } catch (error) {
             window.AITGPTDiagnostics?.error('features.sidebar-init', error);
         } finally {
